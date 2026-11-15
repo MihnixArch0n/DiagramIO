@@ -1,14 +1,17 @@
-# ---- Giai đoạn 1: build ra file jar ----
-FROM maven:3.9-eclipse-temurin-21 AS build
+# ---- Giai đoạn 1: build ra file jar bằng Gradle Wrapper ----
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
-# Copy pom.xml trước để Docker cache phần tải thư viện; sửa code không phải tải lại
-COPY pom.xml .
-RUN mvn -B -q dependency:go-offline
+# Copy wrapper và cấu hình dependencies để tận dụng Docker cache layer
+COPY gradlew .
+COPY gradle ./gradle
+COPY build.gradle.kts settings.gradle.kts ./
+
+RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon
 
 COPY src ./src
-# Test chạy riêng bằng "mvn test" (test CSDL dùng Testcontainers, cần Docker nên không chạy trong lúc build image)
-RUN mvn -B -q package -DskipTests
+# Build bootJar bỏ qua test (test đã được chạy riêng trên CI / host)
+RUN ./gradlew bootJar -x test --no-daemon
 
 # ---- Giai đoạn 2: image chạy, chỉ có JRE + jar ----
 FROM eclipse-temurin:21-jre-alpine
@@ -18,7 +21,7 @@ WORKDIR /app
 RUN addgroup -S app && adduser -S app -G app
 USER app
 
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build /app/build/libs/*.jar app.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

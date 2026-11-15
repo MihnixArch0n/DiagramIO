@@ -1,4 +1,6 @@
-# Chỉ cần pom.xml và src/ để build image
+# Cấu hình build Docker với Gradle
+build/
+.gradle/
 target/
 .git/
 .vscode/

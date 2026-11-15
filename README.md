@@ -137,7 +137,7 @@ docker compose up -d --build    # build image app, chạy PostgreSQL và app
 
 App chạy ở `http://localhost:8080` (đổi bằng `APP_PORT`). Flyway tự tạo bảng và tài khoản mẫu `uet@gmail.com` / `uet123456` ở lần chạy đầu. Container app có healthcheck gọi `/api/v1/health`.
 
-Chạy app từ IDE khi đang phát triển: chạy riêng CSDL bằng `docker compose up -d postgres`, rồi chạy `DiagramioApplication` (hoặc `./mvnw spring-boot:run`). App tự đọc file `.env`, nên `SPRING_DATASOURCE_URL` phải trỏ đúng cổng `POSTGRES_PORT`. Hai cách chạy dùng chung cổng 8080, không chạy cùng lúc.
+Chạy app từ IDE khi đang phát triển: chạy riêng CSDL bằng `docker compose up -d postgres`, rồi chạy `DiagramioApplication` (hoặc `./gradlew bootRun`). App tự đọc file `.env`, nên `SPRING_DATASOURCE_URL` phải trỏ đúng cổng `POSTGRES_PORT`. Hai cách chạy dùng chung cổng 8080, không chạy cùng lúc.
 
 | Biến trong `.env` | Ý nghĩa |
 |---|---|
@@ -157,11 +157,11 @@ curl -s -X POST localhost:8080/api/v1/diagrams -H "Authorization: Bearer $TOKEN"
 
 Một số việc thường làm khác:
 
-- Chạy test: `./mvnw test` (cần Docker đang chạy). Có ba nhóm test:
-  - Unit test và test controller (MockMvc): chạy được ở mọi máy.
+- Chạy test: `./gradlew test` (cần Docker đang chạy) hoặc `./gradlew test -PskipE2e` (không cần Docker). Có ba nhóm test:
+  - Unit test và test controller (MockMvc): chạy được ở mọi máy (`./gradlew test -PskipE2e`).
   - Test CSDL trong `infrastructure` (Testcontainers): không có Docker thì tự bỏ qua.
-  - Test E2E hộp đen trong `src/test/java/com/diagramio/e2e`: khởi động cả app trên cổng ngẫu nhiên với PostgreSQL thật và chỉ gọi API qua HTTP, kiểm tra mọi endpoint với từng vai trò (chủ, link edit, link view, người khác, khách). Nhóm này cố ý báo lỗi khi không có Docker để không "xanh giả". Chạy riêng: `./mvnw test -Dtest='com.diagramio.e2e.**'`; bỏ qua: `./mvnw test -Dtest='!com.diagramio.e2e.**'`.
-  - Dùng JDK mới hơn 21 (ví dụ 25) thì thêm `-DargLine="-Dnet.bytebuddy.experimental=true"` để Mockito chạy được.
+  - Test E2E hộp đen trong `src/test/java/com/diagramio/e2e`: khởi động cả app trên cổng ngẫu nhiên với PostgreSQL thật và chỉ gọi API qua HTTP, kiểm tra mọi endpoint với từng vai trò (chủ, link edit, link view, người khác, khách). Nhóm này cố ý báo lỗi khi không có Docker để không "xanh giả". Chạy riêng: `./gradlew test --tests 'com.diagramio.e2e.*'`; bỏ qua: `./gradlew test -PskipE2e`.
+  - Gradle script đã tự động cấu hình `-Dnet.bytebuddy.experimental=true` khi chạy test để tương thích các phiên bản JDK mới.
 - Xuất lại đặc tả API sau khi đổi endpoint (app đang chạy): `curl -o docs/openapi.yaml http://localhost:8080/v3/api-docs.yaml`. Khóa được sắp xếp cố định và server là URL tương đối, nên file chỉ thay đổi khi API thay đổi; diff khác rỗng nghĩa là phải commit lại file này.
 - Thay đổi CSDL: thêm file migration mới dạng `V<số>__mo_ta.sql` (hai dấu gạch dưới) trong `src/main/resources/db/migration`, không sửa các file đã có.
 
@@ -182,7 +182,7 @@ Toàn bộ hệ thống gồm ứng dụng Spring Boot (Java 21), CSDL PostgreSQ
 ### Cách chạy trên Kaggle Notebook:
 1. Cài đặt JDK 21, PostgreSQL 16 và Locust (`pip install locust`).
 2. Chuyển cơ chế xác thực PostgreSQL sang `trust` cho `localhost` và tạo database `diagramio`.
-3. Clone repository, build ứng dụng bằng `./mvnw clean package -DskipTests` và chạy `java -jar target/diagramio-0.0.1-SNAPSHOT.jar &` (Flyway tự động tạo bảng).
+3. Clone repository, build ứng dụng bằng `./gradlew bootJar -x test` và chạy `java -jar build/libs/diagramio-0.0.1-SNAPSHOT.jar &` (Flyway tự động tạo bảng).
 4. Khởi tạo dữ liệu mẫu (Pre-seed 100 users) và thực thi script Locust đo tải ở các mức 10, 50, 100 users.
 
 ---
