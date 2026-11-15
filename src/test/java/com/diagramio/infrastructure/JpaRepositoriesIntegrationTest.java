@@ -16,34 +16,30 @@ import com.diagramio.infrastructure.diagram.DiagramRepositoryAdapter;
 import com.diagramio.infrastructure.share.DiagramShareMapper;
 import com.diagramio.infrastructure.share.DiagramShareRepositoryAdapter;
 import com.diagramio.infrastructure.version.DiagramVersionRepositoryAdapter;
+import com.diagramio.e2e.E2eTestBase;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Chạy Flyway + Hibernate (ddl-auto: validate) trên PostgreSQL thật.
- * Bỏ qua khi máy không có Docker.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({DiagramRepositoryAdapter.class, DiagramMapper.class, DiagramVersionRepositoryAdapter.class,
         DiagramShareRepositoryAdapter.class, DiagramShareMapper.class})
-@Testcontainers(disabledWithoutDocker = true)
 class JpaRepositoriesIntegrationTest {
 
-    @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+    static final PostgreSQLContainer<?> postgres = E2eTestBase.postgres;
 
     /** Người dùng mẫu được seed trong V2. */
     private static final UUID SEED_USER = UUID.fromString("11111111-1111-1111-1111-111111111111");

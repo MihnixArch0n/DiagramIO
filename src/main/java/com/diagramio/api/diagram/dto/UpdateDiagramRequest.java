@@ -1,6 +1,6 @@
 package com.diagramio.api.diagram.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -14,5 +14,5 @@ public record UpdateDiagramRequest(
         @NotNull
         @Schema(types = "object", implementation = Object.class, example = "{\"nodes\": [], \"edges\": []}")
         JsonNode data,
-        boolean isPublic) {
+        Boolean isPublic) {
 }

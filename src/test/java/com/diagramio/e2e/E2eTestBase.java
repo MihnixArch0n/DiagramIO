@@ -2,9 +2,6 @@ package com.diagramio.e2e;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -20,6 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.containers.PostgreSQLContainer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Black-box E2E base: boots the whole app on a random port against a real PostgreSQL
@@ -33,7 +33,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 public abstract class E2eTestBase {
 
     @ServiceConnection
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+    public static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
 
     static {
         postgres.start();
@@ -41,7 +41,7 @@ public abstract class E2eTestBase {
 
     protected static final String API = "/api/v1";
     protected static final String PASSWORD = "Passw0rd!123";
-    protected static final ObjectMapper JSON = new ObjectMapper();
+    protected static final JsonMapper JSON = JsonMapper.builder().build();
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)

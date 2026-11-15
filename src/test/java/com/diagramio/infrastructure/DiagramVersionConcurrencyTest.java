@@ -10,6 +10,7 @@ import com.diagramio.domain.diagram.DiagramType;
 import com.diagramio.domain.version.DiagramVersion;
 import com.diagramio.domain.version.DiagramVersionService;
 import com.diagramio.domain.version.RestoreResult;
+import com.diagramio.e2e.E2eTestBase;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -27,21 +28,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Nhiều luồng gọi lưu/khôi phục cùng lúc trên PostgreSQL thật: các yêu cầu phải xếp hàng
  * (khóa dòng sơ đồ) và đều thành công, số thứ tự phiên bản tăng tuyến tính 1..n.
- * Bỏ qua khi máy không có Docker.
  */
 @SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
 class DiagramVersionConcurrencyTest {
 
-    @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+    static final PostgreSQLContainer<?> postgres = E2eTestBase.postgres;
 
     /** Người dùng mẫu được seed trong V2. */
     private static final UUID SEED_USER = UUID.fromString("11111111-1111-1111-1111-111111111111");

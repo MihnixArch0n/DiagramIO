@@ -2,7 +2,7 @@ package com.diagramio.e2e;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
 class HealthE2eTest extends E2eTestBase {
@@ -15,7 +15,7 @@ class HealthE2eTest extends E2eTestBase {
         assertThat(j.isObject()).isTrue();
         assertThat(j.size()).isPositive();
         // openapi: object with additionalProperties of type string
-        j.fields().forEachRemaining(e ->
+        j.properties().forEach(e ->
                 assertThat(e.getValue().isTextual()).as("health field %s must be a string", e.getKey()).isTrue());
     }
 

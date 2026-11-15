@@ -130,7 +130,7 @@ public class DiagramController {
         return DiagramResponse.from(diagramService.updateDiagram(
                 id, request.title(), DiagramType.from(request.diagramType()),
                 DiagramData.of(request.data().toString()),
-                request.isPublic(),
+                Boolean.TRUE.equals(request.isPublic()),
                 caller, request.version()));
     }
 

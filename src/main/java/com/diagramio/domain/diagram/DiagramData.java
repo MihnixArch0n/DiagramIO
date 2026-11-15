@@ -1,11 +1,11 @@
 package com.diagramio.domain.diagram;
 
 import com.diagramio.domain.exception.InvalidInputException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Nội dung JSON của sơ đồ (nodes, edges). Luật "hợp lệ" chỉ nằm ở đây:
@@ -22,7 +22,7 @@ public final class DiagramData {
     public static final int MAX_BYTES = 2 * 1024 * 1024;
     public static final DiagramData EMPTY = new DiagramData("{\"nodes\": [], \"edges\": []}");
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final JsonMapper OBJECT_MAPPER = JsonMapper.builder().build();
 
     private final String json;
 
@@ -41,7 +41,7 @@ public final class DiagramData {
         JsonNode root;
         try {
             root = OBJECT_MAPPER.readTree(json);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new InvalidInputException("data must be valid JSON");
         }
         if (root == null || !root.isObject() || !root.path("nodes").isArray() || !root.path("edges").isArray()) {

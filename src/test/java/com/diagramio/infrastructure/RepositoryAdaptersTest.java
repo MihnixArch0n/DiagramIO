@@ -8,32 +8,28 @@ import com.diagramio.infrastructure.auth.RefreshTokenRepositoryAdapter;
 import com.diagramio.infrastructure.user.UserRepositoryAdapter;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import com.diagramio.e2e.E2eTestBase;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Chạy với Postgres thật (Testcontainers); Flyway tạo bảng như khi chạy app.
- * Máy không có Docker thì test này tự bỏ qua.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers(disabledWithoutDocker = true)
 @Import({UserRepositoryAdapter.class, RefreshTokenRepositoryAdapter.class})
 class RepositoryAdaptersTest {
 
     private static final UUID SAMPLE_USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
-    @Container
     @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+    static final PostgreSQLContainer<?> postgres = E2eTestBase.postgres;
 
     @Autowired
     private UserRepositoryAdapter users;

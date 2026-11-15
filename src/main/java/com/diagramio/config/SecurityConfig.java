@@ -5,7 +5,7 @@ import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtAuthenticationFilter;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
 import com.diagramio.infrastructure.security.ShareTokenAuthenticationFilter;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import org.springframework.context.annotation.Bean;
