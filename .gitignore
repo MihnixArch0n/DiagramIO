@@ -9,6 +9,7 @@ postgres_data/
 .env.*.local
 
 # 3. Dependencies & Thư mục Build (Tuỳ ngôn ngữ Backend)
+.gradle/
 node_modules/
 dist/
 build/
