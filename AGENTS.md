@@ -119,4 +119,7 @@
 
 - Keep API documentation and implementation behavior synchronized.
 - Document intentional architectural changes and quality improvements with clear rationale and benchmark results.
+- **Architecture Decision Records (ADRs)**:
+  - Write an ADR in `docs/adr/` (in English, numbered sequentially, following `docs/adr/template.md`) and update `docs/adr/README.md` **only** for significant architectural decisions: introducing architectural patterns, adding new technology/libraries, schema/storage redesigns, or quality attribute tactics.
+  - **Do NOT** write an ADR for bug fixes, minor code refactoring, variable renaming, formatting, adding unit tests, or small everyday adjustments.
 - Report validation commands and any unresolved environment limitations with the completed change.
