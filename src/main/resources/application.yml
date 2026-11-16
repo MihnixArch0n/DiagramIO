@@ -12,6 +12,10 @@ spring:
       ddl-auto: validate # Schema do Flyway quản lý, Hibernate chỉ kiểm tra
   flyway:
     enabled: true
+  docker:
+    compose:
+      start:
+        arguments: "postgres"
 
 server:
   # Sau proxy/load balancer: dùng X-Forwarded-Host/Proto để ghép đúng địa chỉ bên ngoài (vd. shareUrl)

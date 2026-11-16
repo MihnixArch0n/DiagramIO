@@ -2,7 +2,7 @@
 
 ## Tech Stack
 
-- Use Java 21 and Spring Boot for the backend REST API.
+- Use Java 25 and Spring Boot 4 for the backend REST API.
 - Use PostgreSQL as the primary database.
 - Use Spring Data JPA with Hibernate for persistence and Flyway for versioned database migrations.
 - Use Spring Security for authentication and authorization. Implement short-lived JWT access tokens, refresh-token rotation/revocation, and BCrypt or Argon2 password hashing; do not store refresh tokens in plaintext.

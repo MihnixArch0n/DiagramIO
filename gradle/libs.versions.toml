@@ -4,7 +4,6 @@ springBoot = "4.1.2"
 springDependencyManagement = "1.1.7"
 springdoc = "3.2.0"
 archunit = "1.4.1"
-dotenv = "5.1.0"
 jjwt = "0.13.0"
 
 [libraries]
@@ -20,6 +19,7 @@ spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-bo
 spring-boot-starter-security-test = { module = "org.springframework.boot:spring-boot-starter-security-test" }
 spring-boot-starter-data-jpa-test = { module = "org.springframework.boot:spring-boot-starter-data-jpa-test" }
 spring-boot-starter-flyway-test = { module = "org.springframework.boot:spring-boot-starter-flyway-test" }
+spring-boot-starter-validation-test = { module = "org.springframework.boot:spring-boot-starter-validation-test" }
 
 # Database & Flyway
 flyway-core = { module = "org.flywaydb:flyway-core" }
@@ -29,8 +29,8 @@ postgresql = { module = "org.postgresql:postgresql" }
 # OpenAPI Documentation
 springdoc-openapi = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
-# Environment Variables
-springboot3-dotenv = { module = "me.paulschwarz:springboot3-dotenv", version.ref = "dotenv" }
+# Development Services
+spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 
 # Architecture Testing
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }

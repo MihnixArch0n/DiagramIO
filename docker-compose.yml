@@ -25,6 +25,8 @@ services:
     build: .
     image: diagramio-app
     container_name: diagramio_app
+    labels:
+      org.springframework.boot.ignore: "true"
     restart: unless-stopped
     depends_on:
       postgres:

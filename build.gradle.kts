@@ -27,7 +27,7 @@ dependencies {
     runtimeOnly(libs.postgresql)
 
     implementation(libs.springdoc.openapi)
-    implementation(libs.springboot3.dotenv)
+    developmentOnly(libs.spring.boot.docker.compose)
 
     implementation(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)
@@ -37,6 +37,7 @@ dependencies {
     testImplementation(libs.spring.boot.starter.security.test)
     testImplementation(libs.spring.boot.starter.data.jpa.test)
     testImplementation(libs.spring.boot.starter.flyway.test)
+    testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation(libs.archunit)
 
     // Testcontainers (phiên bản 2.0.5 do Spring Boot 4.1.2 BOM quản lý)
@@ -45,6 +46,13 @@ dependencies {
     testImplementation(libs.testcontainers.postgresql)
 
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun> {
+    val podmanSock = file("/run/user/1000/podman/podman.sock")
+    if (podmanSock.exists() && System.getenv("DOCKER_HOST") == null) {
+        environment("DOCKER_HOST", "unix://${podmanSock.absolutePath}")
+    }
 }
 
 tasks.withType<Test> {

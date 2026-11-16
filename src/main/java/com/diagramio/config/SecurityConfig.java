@@ -5,7 +5,7 @@ import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtAuthenticationFilter;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
 import com.diagramio.infrastructure.security.ShareTokenAuthenticationFilter;
-import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import org.springframework.context.annotation.Bean;
@@ -45,12 +45,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtTokenProvider jwtTokenProvider,
                                                    ShareService shareService,
-                                                   ObjectMapper objectMapper)
+                                                   JsonMapper jsonMapper)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .exceptionHandling(e -> e.authenticationEntryPoint(jsonUnauthorizedEntryPoint(objectMapper)))
+                .exceptionHandling(e -> e.authenticationEntryPoint(jsonUnauthorizedEntryPoint(jsonMapper)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/diagrams/*").permitAll()
@@ -62,13 +62,13 @@ public class SecurityConfig {
     }
 
     /** Trả 401 cùng khung JSON với GlobalExceptionHandler. */
-    private static AuthenticationEntryPoint jsonUnauthorizedEntryPoint(ObjectMapper objectMapper) {
+    private static AuthenticationEntryPoint jsonUnauthorizedEntryPoint(JsonMapper jsonMapper) {
         return (request, response, exception) -> {
             HttpStatus status = HttpStatus.UNAUTHORIZED;
             response.setStatus(status.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-            objectMapper.writeValue(response.getOutputStream(), new ErrorResponse(Instant.now(), status.value(),
+            jsonMapper.writeValue(response.getOutputStream(), new ErrorResponse(Instant.now(), status.value(),
                     status.getReasonPhrase(), "Authentication required", request.getRequestURI()));
         };
     }

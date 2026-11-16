@@ -26,7 +26,7 @@ Pha 1 không làm: giao diện frontend và canvas; cộng tác thời gian th�
 
 | Thành phần | Lựa chọn |
 |---|---|
-| Ngôn ngữ, framework | Java 21, Spring Boot 3.4 (Web, Validation, Security) |
+| Ngôn ngữ, framework | Java 25, Spring Boot 4.1.2 (WebMvc, Validation, Security) |
 | CSDL | PostgreSQL 15, Spring Data JPA, Flyway quản lý schema |
 | Xác thực | JWT (jjwt), BCrypt, refresh token lưu dạng SHA-256 |
 | Tài liệu API | springdoc-openapi (Swagger UI) |
@@ -137,7 +137,7 @@ docker compose up -d --build    # build image app, chạy PostgreSQL và app
 
 App chạy ở `http://localhost:8080` (đổi bằng `APP_PORT`). Flyway tự tạo bảng và tài khoản mẫu `uet@gmail.com` / `uet123456` ở lần chạy đầu. Container app có healthcheck gọi `/api/v1/health`.
 
-Chạy app từ IDE khi đang phát triển: chạy riêng CSDL bằng `docker compose up -d postgres`, rồi chạy `DiagramioApplication` (hoặc `./gradlew bootRun`). App tự đọc file `.env`, nên `SPRING_DATASOURCE_URL` phải trỏ đúng cổng `POSTGRES_PORT`. Hai cách chạy dùng chung cổng 8080, không chạy cùng lúc.
+Chạy app từ IDE hoặc `./gradlew bootRun` khi đang phát triển: Nhờ tích hợp `spring-boot-docker-compose`, Spring Boot sẽ tự động quét `docker-compose.yml`, khởi động container PostgreSQL và tự động cấu hình kết nối CSDL (Service Connection) mà không cần bật CSDL thủ công hay cấu hình file `.env`. Hai cách chạy dùng chung cổng 8080, không chạy cùng lúc.
 
 | Biến trong `.env` | Ý nghĩa |
 |---|---|
