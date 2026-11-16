@@ -22,10 +22,10 @@ class ShareE2eTest extends E2eTestBase {
     private static void assertShareShape(JsonNode s) {
         assertUuid(s.path("id"));
         assertUuid(s.path("diagramId"));
-        assertThat(s.path("shareToken").asText()).isNotBlank();
-        assertThat(s.path("shareUrl").asText()).isNotBlank();
-        assertThat(s.path("role").asText()).isIn("view", "edit");
-        assertThat(s.path("createdAt").isTextual()).isTrue();
+        assertThat(s.path("shareToken").asString()).isNotBlank();
+        assertThat(s.path("shareUrl").asString()).isNotBlank();
+        assertThat(s.path("role").asString()).isIn("view", "edit");
+        assertThat(s.path("createdAt").isString()).isTrue();
     }
 
     // ------------------------------------------------------------------ POST shares
@@ -38,13 +38,13 @@ class ShareE2eTest extends E2eTestBase {
         assertStatus(r, 201);
         JsonNode s = r.json();
         assertShareShape(s);
-        assertThat(s.path("diagramId").asText()).isEqualTo(id);
-        assertThat(s.path("role").asText()).isEqualTo("view");
-        String token = s.path("shareToken").asText();
+        assertThat(s.path("diagramId").asString()).isEqualTo(id);
+        assertThat(s.path("role").asString()).isEqualTo("view");
+        String token = s.path("shareToken").asString();
         // cryptographically random: at least 128 bits of entropy when hex/base64 encoded
         assertThat(token.length()).isGreaterThanOrEqualTo(32);
         assertThat(token).doesNotContain(id).doesNotContain(id.replace("-", ""));
-        String url = s.path("shareUrl").asText();
+        String url = s.path("shareUrl").asString();
         assertThat(url).contains(token).contains(API + "/shares/");
     }
 
@@ -53,16 +53,16 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "edit");
-        Res r = get(s.path("shareUrl").asText()).send();
+        Res r = get(s.path("shareUrl").asString()).send();
         assertStatus(r, 200);
-        assertThat(r.json().path("id").asText()).isEqualTo(id);
+        assertThat(r.json().path("id").asString()).isEqualTo(id);
     }
 
     @Test
     void createShareEditRoleReturns201() {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
-        assertThat(createShare(a, id, "edit").path("role").asText()).isEqualTo("edit");
+        assertThat(createShare(a, id, "edit").path("role").asString()).isEqualTo("edit");
     }
 
     @Test
@@ -178,7 +178,7 @@ class ShareE2eTest extends E2eTestBase {
         List<JsonNode> list = items(r.json());
         assertThat(list).hasSize(2);
         list.forEach(ShareE2eTest::assertShareShape);
-        assertThat(list).extracting(n -> n.path("shareToken").asText()).containsExactlyInAnyOrder(t1, t2);
+        assertThat(list).extracting(n -> n.path("shareToken").asString()).containsExactlyInAnyOrder(t1, t2);
     }
 
     @Test
@@ -230,31 +230,31 @@ class ShareE2eTest extends E2eTestBase {
     void updateShareOwnerViewToEditReturns200AndTakesEffectImmediately() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         JsonNode s = createShare(a, id, "view");
-        String token = s.path("shareToken").asText();
+        String token = s.path("shareToken").asString();
         // view link cannot edit
         assertError(updateDiagram(Actor.shareOnly(token), id, "T", "UML", d.path("version").asInt(), dataWith("X"), null), 403);
 
-        Res r = patch(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).json(obj("role", "edit")).send();
+        Res r = patch(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).json(obj("role", "edit")).send();
         assertStatus(r, 200);
         assertShareShape(r.json());
-        assertThat(r.json().path("role").asText()).isEqualTo("edit");
-        assertThat(r.json().path("shareToken").asText()).isEqualTo(token);
+        assertThat(r.json().path("role").asString()).isEqualTo("edit");
+        assertThat(r.json().path("shareToken").asString()).isEqualTo(token);
 
         // same token now edits
         assertStatus(updateDiagram(Actor.shareOnly(token), id, "T", "UML", d.path("version").asInt(), dataWith("X"), null), 200);
-        assertThat(get(API + "/shares/" + token).send().json().path("role").asText()).isEqualTo("edit");
+        assertThat(get(API + "/shares/" + token).send().json().path("role").asString()).isEqualTo("edit");
     }
 
     @Test
     void updateShareOwnerEditToViewRemovesEditRightImmediately() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         JsonNode s = createShare(a, id, "edit");
-        String token = s.path("shareToken").asText();
-        assertStatus(patch(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).json(obj("role", "view")).send(), 200);
+        String token = s.path("shareToken").asString();
+        assertStatus(patch(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).json(obj("role", "view")).send(), 200);
         assertError(updateDiagram(Actor.shareOnly(token), id, "T", "UML", d.path("version").asInt(), dataWith("X"), null), 403);
         assertError(post(API + "/diagrams/" + id + "/versions").share(token).json(obj("note", "x")).send(), 403);
         // still viewable
@@ -266,7 +266,7 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertError(patch(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).json(obj("role", "superuser")).send(), 400);
+        assertError(patch(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).json(obj("role", "superuser")).send(), 400);
     }
 
     @Test
@@ -274,7 +274,7 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertError(patch(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).json(obj()).send(), 400);
+        assertError(patch(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).json(obj()).send(), 400);
     }
 
     @Test
@@ -283,8 +283,8 @@ class ShareE2eTest extends E2eTestBase {
         Actor b = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertError(patch(shares(id) + "/" + s.path("id").asText()).bearer(b.accessToken()).json(obj("role", "edit")).send(), 403);
-        assertThat(get(API + "/shares/" + s.path("shareToken").asText()).send().json().path("role").asText()).isEqualTo("view");
+        assertError(patch(shares(id) + "/" + s.path("id").asString()).bearer(b.accessToken()).json(obj("role", "edit")).send(), 403);
+        assertThat(get(API + "/shares/" + s.path("shareToken").asString()).send().json().path("role").asString()).isEqualTo("view");
     }
 
     @Test
@@ -292,10 +292,10 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        String token = s.path("shareToken").asText();
-        Res r = patch(shares(id) + "/" + s.path("id").asText()).share(token).json(obj("role", "edit")).send();
+        String token = s.path("shareToken").asString();
+        Res r = patch(shares(id) + "/" + s.path("id").asString()).share(token).json(obj("role", "edit")).send();
         assertStatusIn(r, 401, 403);
-        assertThat(get(API + "/shares/" + token).send().json().path("role").asText()).isEqualTo("view");
+        assertThat(get(API + "/shares/" + token).send().json().path("role").asString()).isEqualTo("view");
     }
 
     @Test
@@ -304,7 +304,7 @@ class ShareE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         JsonNode view = createShare(a, id, "view");
         String editToken = shareToken(a, id, "edit");
-        Res r = patch(shares(id) + "/" + view.path("id").asText()).share(editToken).json(obj("role", "edit")).send();
+        Res r = patch(shares(id) + "/" + view.path("id").asString()).share(editToken).json(obj("role", "edit")).send();
         assertStatusIn(r, 401, 403);
     }
 
@@ -313,7 +313,7 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertError(patch(shares(id) + "/" + s.path("id").asText()).json(obj("role", "edit")).send(), 401);
+        assertError(patch(shares(id) + "/" + s.path("id").asString()).json(obj("role", "edit")).send(), 401);
     }
 
     @Test
@@ -329,8 +329,8 @@ class ShareE2eTest extends E2eTestBase {
         String d1 = createDiagramId(a);
         String d2 = createDiagramId(a);
         JsonNode s = createShare(a, d1, "view");
-        assertError(patch(shares(d2) + "/" + s.path("id").asText()).bearer(a.accessToken()).json(obj("role", "edit")).send(), 404);
-        assertThat(get(API + "/shares/" + s.path("shareToken").asText()).send().json().path("role").asText()).isEqualTo("view");
+        assertError(patch(shares(d2) + "/" + s.path("id").asString()).bearer(a.accessToken()).json(obj("role", "edit")).send(), 404);
+        assertThat(get(API + "/shares/" + s.path("shareToken").asString()).send().json().path("role").asString()).isEqualTo("view");
     }
 
     @Test
@@ -341,9 +341,9 @@ class ShareE2eTest extends E2eTestBase {
         String aDiagram = createDiagramId(a);
         String bDiagram = createDiagramId(b);
         JsonNode s = createShare(a, aDiagram, "view");
-        Res r = patch(shares(bDiagram) + "/" + s.path("id").asText()).bearer(b.accessToken()).json(obj("role", "edit")).send();
+        Res r = patch(shares(bDiagram) + "/" + s.path("id").asString()).bearer(b.accessToken()).json(obj("role", "edit")).send();
         assertStatusIn(r, 403, 404);
-        assertThat(get(API + "/shares/" + s.path("shareToken").asText()).send().json().path("role").asText()).isEqualTo("view");
+        assertThat(get(API + "/shares/" + s.path("shareToken").asString()).send().json().path("role").asString()).isEqualTo("view");
     }
 
     // ------------------------------------------------------------------ DELETE share (revoke)
@@ -352,12 +352,12 @@ class ShareE2eTest extends E2eTestBase {
     void revokeShareOwnerInvalidatesTokenImmediately() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         JsonNode s = createShare(a, id, "edit");
-        String token = s.path("shareToken").asText();
+        String token = s.path("shareToken").asString();
         assertStatus(updateDiagram(Actor.shareOnly(token), id, "T", "UML", d.path("version").asInt(), dataWith("E1"), null), 200);
 
-        Res r = delete(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).send();
+        Res r = delete(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).send();
         // SPEC-AMBIGUOUS: openapi lists no success code; 204 No Content is the conventional one (200 also accepted).
         assertStatusIn(r, 200, 204);
 
@@ -377,10 +377,10 @@ class ShareE2eTest extends E2eTestBase {
     void updateShareAfterRevokeReturns404AndLinkStaysRevoked() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         JsonNode s = createShare(a, id, "view");
-        String token = s.path("shareToken").asText();
-        String shareUrl = shares(id) + "/" + s.path("id").asText();
+        String token = s.path("shareToken").asString();
+        String shareUrl = shares(id) + "/" + s.path("id").asString();
         assertStatus(delete(shareUrl).bearer(a.accessToken()).send(), 204);
 
         assertError(patch(shareUrl).bearer(a.accessToken()).json(obj("role", "edit")).send(), 404);
@@ -400,7 +400,7 @@ class ShareE2eTest extends E2eTestBase {
         try {
             for (int round = 0; round < 5; round++) {
                 JsonNode s = createShare(a, id, "view");
-                String url = shares(id) + "/" + s.path("id").asText();
+                String url = shares(id) + "/" + s.path("id").asString();
                 CountDownLatch start = new CountDownLatch(1);
                 Future<Res> del = pool.submit(() -> {
                     start.await();
@@ -414,7 +414,7 @@ class ShareE2eTest extends E2eTestBase {
                 assertStatus(del.get(), 204);
                 Res u = upd.get();
                 assertThat(u.status()).as("PATCH racing revoke: %s", u.body()).isIn(200, 404);
-                assertStatusIn(get(API + "/shares/" + s.path("shareToken").asText()).send(), 404, 410);
+                assertStatusIn(get(API + "/shares/" + s.path("shareToken").asString()).send(), 404, 410);
             }
         } finally {
             pool.shutdown();
@@ -428,7 +428,7 @@ class ShareE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         JsonNode s1 = createShare(a, id, "view");
         String t2 = shareToken(a, id, "view");
-        assertStatusIn(delete(shares(id) + "/" + s1.path("id").asText()).bearer(a.accessToken()).send(), 200, 204);
+        assertStatusIn(delete(shares(id) + "/" + s1.path("id").asString()).bearer(a.accessToken()).send(), 200, 204);
         assertStatus(get(API + "/shares/" + t2).send(), 200);
     }
 
@@ -437,8 +437,8 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertStatusIn(delete(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).send(), 200, 204);
-        assertError(delete(shares(id) + "/" + s.path("id").asText()).bearer(a.accessToken()).send(), 404);
+        assertStatusIn(delete(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).send(), 200, 204);
+        assertError(delete(shares(id) + "/" + s.path("id").asString()).bearer(a.accessToken()).send(), 404);
     }
 
     @Test
@@ -447,8 +447,8 @@ class ShareE2eTest extends E2eTestBase {
         Actor b = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertError(delete(shares(id) + "/" + s.path("id").asText()).bearer(b.accessToken()).send(), 403);
-        assertStatus(get(API + "/shares/" + s.path("shareToken").asText()).send(), 200);
+        assertError(delete(shares(id) + "/" + s.path("id").asString()).bearer(b.accessToken()).send(), 403);
+        assertStatus(get(API + "/shares/" + s.path("shareToken").asString()).send(), 200);
     }
 
     @Test
@@ -456,8 +456,8 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "edit");
-        String token = s.path("shareToken").asText();
-        assertStatusIn(delete(shares(id) + "/" + s.path("id").asText()).share(token).send(), 401, 403);
+        String token = s.path("shareToken").asString();
+        assertStatusIn(delete(shares(id) + "/" + s.path("id").asString()).share(token).send(), 401, 403);
         assertStatus(get(API + "/shares/" + token).send(), 200);
     }
 
@@ -466,8 +466,8 @@ class ShareE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode s = createShare(a, id, "view");
-        assertError(delete(shares(id) + "/" + s.path("id").asText()).send(), 401);
-        assertStatus(get(API + "/shares/" + s.path("shareToken").asText()).send(), 200);
+        assertError(delete(shares(id) + "/" + s.path("id").asString()).send(), 401);
+        assertStatus(get(API + "/shares/" + s.path("shareToken").asString()).send(), 200);
     }
 
     @Test
@@ -483,8 +483,8 @@ class ShareE2eTest extends E2eTestBase {
         String d1 = createDiagramId(a);
         String d2 = createDiagramId(a);
         JsonNode s = createShare(a, d1, "view");
-        assertError(delete(shares(d2) + "/" + s.path("id").asText()).bearer(a.accessToken()).send(), 404);
-        assertStatus(get(API + "/shares/" + s.path("shareToken").asText()).send(), 200);
+        assertError(delete(shares(d2) + "/" + s.path("id").asString()).bearer(a.accessToken()).send(), 404);
+        assertStatus(get(API + "/shares/" + s.path("shareToken").asString()).send(), 200);
     }
 
     @Test
@@ -494,9 +494,9 @@ class ShareE2eTest extends E2eTestBase {
         String aDiagram = createDiagramId(a);
         String bDiagram = createDiagramId(b);
         JsonNode s = createShare(a, aDiagram, "view");
-        Res r = delete(shares(bDiagram) + "/" + s.path("id").asText()).bearer(b.accessToken()).send();
+        Res r = delete(shares(bDiagram) + "/" + s.path("id").asString()).bearer(b.accessToken()).send();
         assertStatusIn(r, 403, 404);
-        assertStatus(get(API + "/shares/" + s.path("shareToken").asText()).send(), 200);
+        assertStatus(get(API + "/shares/" + s.path("shareToken").asString()).send(), 200);
     }
 
     @Test
@@ -512,20 +512,20 @@ class ShareE2eTest extends E2eTestBase {
     void openShareTokenAnonymousReturnsDiagramAndRole() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "ERD", "Shared ERD");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         setData(a, id, dataWith("SH"));
         String token = shareToken(a, id, "view");
         Res r = get(API + "/shares/" + token).send();
         assertStatus(r, 200);
         JsonNode j = r.json();
-        assertThat(j.path("id").asText()).isEqualTo(id);
-        assertThat(j.path("title").asText()).isEqualTo("Shared ERD");
-        assertThat(j.path("diagramType").asText()).isEqualTo("ERD");
-        assertThat(j.path("role").asText()).isEqualTo("view");
+        assertThat(j.path("id").asString()).isEqualTo(id);
+        assertThat(j.path("title").asString()).isEqualTo("Shared ERD");
+        assertThat(j.path("diagramType").asString()).isEqualTo("ERD");
+        assertThat(j.path("role").asString()).isEqualTo("view");
         assertThat(j.path("version").isInt()).isTrue();
         assertThat(j.path("isPublic").isBoolean()).isTrue();
-        assertThat(j.path("createdAt").isTextual()).isTrue();
-        assertThat(j.path("updatedAt").isTextual()).isTrue();
+        assertThat(j.path("createdAt").isString()).isTrue();
+        assertThat(j.path("updatedAt").isString()).isTrue();
         // SPEC-AMBIGUOUS: openapi types `data` as string; we require a JSON object.
         assertThat(j.path("data").isObject()).as("data object in %s", j).isTrue();
         assertThat(j.path("data")).isEqualTo(dataWith("SH"));
@@ -540,7 +540,7 @@ class ShareE2eTest extends E2eTestBase {
         String token = shareToken(a, id, "edit");
         Res r = get(API + "/shares/" + token).send();
         assertStatus(r, 200);
-        assertThat(r.json().path("role").asText()).isEqualTo("edit");
+        assertThat(r.json().path("role").asString()).isEqualTo("edit");
     }
 
     @Test
@@ -586,7 +586,7 @@ class ShareE2eTest extends E2eTestBase {
     void ownerUsingOwnViewLinkKeepsOwnerRights() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         String token = shareToken(a, id, "view");
         Actor ownerWithLink = a.withShare(token);
         assertStatus(updateDiagram(ownerWithLink, id, "T", "UML", d.path("version").asInt(), dataWith("O"), true), 200);

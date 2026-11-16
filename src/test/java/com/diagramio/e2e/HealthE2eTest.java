@@ -16,7 +16,7 @@ class HealthE2eTest extends E2eTestBase {
         assertThat(j.size()).isPositive();
         // openapi: object with additionalProperties of type string
         j.properties().forEach(e ->
-                assertThat(e.getValue().isTextual()).as("health field %s must be a string", e.getKey()).isTrue());
+                assertThat(e.getValue().isString()).as("health field %s must be a string", e.getKey()).isTrue());
     }
 
     @Test

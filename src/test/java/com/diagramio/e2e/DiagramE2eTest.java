@@ -20,13 +20,13 @@ class DiagramE2eTest extends E2eTestBase {
 
     private static void assertDiagramShape(JsonNode d) {
         assertUuid(d.path("id"));
-        assertThat(d.path("title").isTextual()).isTrue();
-        assertThat(d.path("diagramType").asText()).isIn("UML", "ERD");
+        assertThat(d.path("title").isString()).isTrue();
+        assertThat(d.path("diagramType").asString()).isIn("UML", "ERD");
         assertThat(d.path("version").isInt()).as("version int in %s", d).isTrue();
         assertThat(d.path("isPublic").isBoolean()).as("isPublic boolean in %s", d).isTrue();
         assertUuid(d.path("ownerId"));
-        assertThat(d.path("createdAt").isTextual()).isTrue();
-        assertThat(d.path("updatedAt").isTextual()).isTrue();
+        assertThat(d.path("createdAt").isString()).isTrue();
+        assertThat(d.path("updatedAt").isString()).isTrue();
         // SPEC-AMBIGUOUS: openapi types `data` as string but its example is an object; the spec says "data as JSON"
         // with nodes/edges, so we require a real JSON object, not a JSON-encoded string.
         assertThat(d.path("data").isObject()).as("data must be a JSON object in %s", d).isTrue();
@@ -41,10 +41,10 @@ class DiagramE2eTest extends E2eTestBase {
         assertStatus(r, 201);
         JsonNode d = r.json();
         assertDiagramShape(d);
-        assertThat(d.path("title").asText()).isEqualTo("Shop ERD");
-        assertThat(d.path("diagramType").asText()).isEqualTo("ERD");
+        assertThat(d.path("title").asString()).isEqualTo("Shop ERD");
+        assertThat(d.path("diagramType").asString()).isEqualTo("ERD");
         assertThat(d.path("isPublic").asBoolean()).isFalse();
-        assertThat(d.path("ownerId").asText()).isEqualTo(a.userId());
+        assertThat(d.path("ownerId").asString()).isEqualTo(a.userId());
         assertThat(d.path("data")).isEqualTo(emptyData());
     }
 
@@ -52,7 +52,7 @@ class DiagramE2eTest extends E2eTestBase {
     void createDiagramUmlTypeReturns201() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertThat(d.path("diagramType").asText()).isEqualTo("UML");
+        assertThat(d.path("diagramType").asString()).isEqualTo("UML");
     }
 
     @Test
@@ -65,7 +65,7 @@ class DiagramE2eTest extends E2eTestBase {
         if (r.status() == 201) {
             assertThat(r.json().path("isPublic").asBoolean()).isFalse();
             assertThat(r.json().path("data")).isEqualTo(emptyData());
-            JsonNode stored = getDiagram(a, r.json().path("id").asText());
+            JsonNode stored = getDiagram(a, r.json().path("id").asString());
             assertThat(stored.path("isPublic").asBoolean()).isFalse();
             assertThat(stored.path("data")).isEqualTo(emptyData());
         } else {
@@ -164,14 +164,14 @@ class DiagramE2eTest extends E2eTestBase {
     @Test
     void listMyDiagramsFilterByTypeReturnsOnlyThatType() {
         Actor a = registerAndLogin();
-        String uml = createDiagram(a, "UML").path("id").asText();
-        String erd = createDiagram(a, "ERD").path("id").asText();
+        String uml = createDiagram(a, "UML").path("id").asString();
+        String erd = createDiagram(a, "ERD").path("id").asString();
         Res r = get(API + "/diagrams?diagramType=ERD").bearer(a.accessToken()).send();
         assertStatus(r, 200);
         List<JsonNode> items = items(r.json());
         assertThat(containsId(items, erd)).isTrue();
         assertThat(containsId(items, uml)).isFalse();
-        assertThat(items).allMatch(n -> n.path("diagramType").asText().equals("ERD"));
+        assertThat(items).allMatch(n -> n.path("diagramType").asString().equals("ERD"));
     }
 
     @Test
@@ -183,8 +183,8 @@ class DiagramE2eTest extends E2eTestBase {
     @Test
     void listMyDiagramsSearchByTitleIsCaseInsensitiveSubstring() {
         Actor a = registerAndLogin();
-        String hit = createDiagram(a, "UML", "Library Management System").path("id").asText();
-        String miss = createDiagram(a, "UML", "Shop ERD").path("id").asText();
+        String hit = createDiagram(a, "UML", "Library Management System").path("id").asString();
+        String miss = createDiagram(a, "UML", "Shop ERD").path("id").asString();
         Res r = get(API + "/diagrams?title=libRARY").bearer(a.accessToken()).send();
         assertStatus(r, 200);
         List<JsonNode> items = items(r.json());
@@ -274,7 +274,7 @@ class DiagramE2eTest extends E2eTestBase {
         Res r = get(API + "/diagrams/" + id).bearer(a.accessToken()).send();
         assertStatus(r, 200);
         assertDiagramShape(r.json());
-        assertThat(r.json().path("id").asText()).isEqualTo(id);
+        assertThat(r.json().path("id").asString()).isEqualTo(id);
         assertThat(r.json().path("data")).isEqualTo(emptyData());
     }
 
@@ -326,7 +326,7 @@ class DiagramE2eTest extends E2eTestBase {
         String token = shareToken(a, id, "view");
         Res r = get(API + "/diagrams/" + id).share(token).send();
         assertStatus(r, 200);
-        assertThat(r.json().path("id").asText()).isEqualTo(id);
+        assertThat(r.json().path("id").asString()).isEqualTo(id);
     }
 
     @Test
@@ -376,17 +376,17 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramOwnerReturns200AndIncrementsVersion() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML", "Before");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         int v = d.path("version").asInt();
         Res r = updateDiagram(a, id, "After", "ERD", v, dataWith("N1"), false);
         assertStatus(r, 200);
         JsonNode u = r.json();
         assertDiagramShape(u);
         assertThat(u.path("version").asInt()).isEqualTo(v + 1);
-        assertThat(u.path("title").asText()).isEqualTo("After");
-        assertThat(u.path("diagramType").asText()).isEqualTo("ERD");
+        assertThat(u.path("title").asString()).isEqualTo("After");
+        assertThat(u.path("diagramType").asString()).isEqualTo("ERD");
         assertThat(u.path("data")).isEqualTo(dataWith("N1"));
-        assertThat(u.path("updatedBy").asText()).isEqualTo(a.userId());
+        assertThat(u.path("updatedBy").asString()).isEqualTo(a.userId());
         JsonNode stored = getDiagram(a, id);
         assertThat(stored.path("data")).isEqualTo(dataWith("N1"));
         assertThat(stored.path("version").asInt()).isEqualTo(v + 1);
@@ -396,15 +396,15 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramStaleVersionReturns409AndLeavesDataUnchanged() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML", "T");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         int v = d.path("version").asInt();
         assertStatus(updateDiagram(a, id, "T1", "UML", v, dataWith("FIRST"), false), 200);
         Res stale = updateDiagram(a, id, "T2", "ERD", v, dataWith("SECOND"), true);
         assertError(stale, 409);
         JsonNode stored = getDiagram(a, id);
         assertThat(stored.path("data")).isEqualTo(dataWith("FIRST"));
-        assertThat(stored.path("title").asText()).isEqualTo("T1");
-        assertThat(stored.path("diagramType").asText()).isEqualTo("UML");
+        assertThat(stored.path("title").asString()).isEqualTo("T1");
+        assertThat(stored.path("diagramType").asString()).isEqualTo("UML");
         assertThat(stored.path("isPublic").asBoolean()).isFalse();
         assertThat(stored.path("version").asInt()).isEqualTo(v + 1);
     }
@@ -413,7 +413,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramFutureVersionReturns409() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         assertError(updateDiagram(a, id, "T", "UML", d.path("version").asInt() + 5, dataWith("X"), false), 409);
         assertThat(getDiagram(a, id).path("data")).isEqualTo(emptyData());
     }
@@ -422,7 +422,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramConcurrentSameVersionOnlyOneSucceeds() throws Exception {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         int v = d.path("version").asInt();
         int n = 6;
         ExecutorService pool = Executors.newFixedThreadPool(n);
@@ -468,7 +468,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramMissingDataReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        Res r = put(API + "/diagrams/" + d.path("id").asText()).bearer(a.accessToken())
+        Res r = put(API + "/diagrams/" + d.path("id").asString()).bearer(a.accessToken())
                 .json(obj("title", "T", "diagramType", "UML", "version", d.path("version").asInt())).send();
         assertError(r, 400);
     }
@@ -477,21 +477,21 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramInvalidTypeReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(a, d.path("id").asText(), "T", "BPMN", d.path("version").asInt(), dataWith("X"), false), 400);
+        assertError(updateDiagram(a, d.path("id").asString(), "T", "BPMN", d.path("version").asInt(), dataWith("X"), false), 400);
     }
 
     @Test
     void updateDiagramBlankTitleReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(a, d.path("id").asText(), "", "UML", d.path("version").asInt(), dataWith("X"), false), 400);
+        assertError(updateDiagram(a, d.path("id").asString(), "", "UML", d.path("version").asInt(), dataWith("X"), false), 400);
     }
 
     @Test
     void updateDiagramDataWithoutNodesReturns400AndLeavesDataUnchanged() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         Res r = updateDiagram(a, id, "T", "UML", d.path("version").asInt(), parse("{\"edges\":[]}"), false);
         assertError(r, 400);
         JsonNode stored = getDiagram(a, id);
@@ -503,7 +503,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramDataWithoutEdgesReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(a, d.path("id").asText(), "T", "UML", d.path("version").asInt(),
+        assertError(updateDiagram(a, d.path("id").asString(), "T", "UML", d.path("version").asInt(),
                 parse("{\"nodes\":[]}"), false), 400);
     }
 
@@ -511,7 +511,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramNodesNotArrayReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(a, d.path("id").asText(), "T", "UML", d.path("version").asInt(),
+        assertError(updateDiagram(a, d.path("id").asString(), "T", "UML", d.path("version").asInt(),
                 parse("{\"nodes\":\"x\",\"edges\":[]}"), false), 400);
     }
 
@@ -519,7 +519,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramDataIsArrayReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(a, d.path("id").asText(), "T", "UML", d.path("version").asInt(),
+        assertError(updateDiagram(a, d.path("id").asString(), "T", "UML", d.path("version").asInt(),
                 parse("[1,2,3]"), false), 400);
     }
 
@@ -527,7 +527,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramDataIsStringReturns400() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(a, d.path("id").asText(), "T", "UML", d.path("version").asInt(),
+        assertError(updateDiagram(a, d.path("id").asString(), "T", "UML", d.path("version").asInt(),
                 JSON.valueToTree("{\"nodes\":[],\"edges\":[]}"), false), 400);
     }
 
@@ -535,7 +535,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramOversizeDataReturns400AndLeavesDataUnchanged() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         String big = "x".repeat(2 * 1024 * 1024 + 1024);
         JsonNode data = parse("{\"nodes\":[{\"id\":\"n\",\"label\":\"" + big + "\"}],\"edges\":[]}");
         Res r = updateDiagram(a, id, "T", "UML", d.path("version").asInt(), data, false);
@@ -552,7 +552,7 @@ class DiagramE2eTest extends E2eTestBase {
         JsonNode d = createDiagram(a, "UML");
         String big = "y".repeat(1_900_000);
         JsonNode data = parse("{\"nodes\":[{\"id\":\"n\",\"label\":\"" + big + "\"}],\"edges\":[]}");
-        Res r = updateDiagram(a, d.path("id").asText(), "T", "UML", d.path("version").asInt(), data, false);
+        Res r = updateDiagram(a, d.path("id").asString(), "T", "UML", d.path("version").asInt(), data, false);
         assertStatus(r, 200);
     }
 
@@ -560,10 +560,10 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramTooLongTitleReturns400AndLeavesDiagramUnchanged() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML", "Short");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         assertError(updateDiagram(a, id, "t".repeat(256), "UML", d.path("version").asInt(), dataWith("X"), false), 400);
         JsonNode stored = getDiagram(a, id);
-        assertThat(stored.path("title").asText()).isEqualTo("Short");
+        assertThat(stored.path("title").asString()).isEqualTo("Short");
         assertThat(stored.path("data")).isEqualTo(emptyData());
     }
 
@@ -578,7 +578,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramEditShareTokenReturns200WithNullUpdatedBy() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         String token = shareToken(a, id, "edit");
         Res r = updateDiagram(Actor.shareOnly(token), id, "Edited", "UML", d.path("version").asInt(), dataWith("E"), null);
         assertStatus(r, 200);
@@ -593,19 +593,19 @@ class DiagramE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         Actor b = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         String token = shareToken(a, id, "edit");
         Res r = updateDiagram(b.withShare(token), id, "T", "UML", d.path("version").asInt(), dataWith("B"), null);
         assertStatus(r, 200);
-        assertThat(r.json().path("updatedBy").asText()).isEqualTo(b.userId());
-        assertThat(r.json().path("ownerId").asText()).isEqualTo(a.userId());
+        assertThat(r.json().path("updatedBy").asString()).isEqualTo(b.userId());
+        assertThat(r.json().path("ownerId").asString()).isEqualTo(a.userId());
     }
 
     @Test
     void updateDiagramEditorCannotChangeIsPublic() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         String token = shareToken(a, id, "edit");
         Res r = updateDiagram(Actor.shareOnly(token), id, "T", "UML", d.path("version").asInt(), dataWith("E"), true);
         // README: "Chỉ chủ được đổi isPublic" (flow doc: editor's isPublic is ignored, kept as before)
@@ -622,7 +622,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramViewShareTokenReturns403AndLeavesDataUnchanged() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         String token = shareToken(a, id, "view");
         Res r = updateDiagram(Actor.shareOnly(token), id, "T", "UML", d.path("version").asInt(), dataWith("V"), null);
         assertError(r, 403);
@@ -634,7 +634,7 @@ class DiagramE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         Actor b = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         assertError(updateDiagram(b, id, "T", "UML", d.path("version").asInt(), dataWith("B"), true), 403);
         JsonNode stored = getDiagram(a, id);
         assertThat(stored.path("data")).isEqualTo(emptyData());
@@ -663,7 +663,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramAnonymousReturns401() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(Actor.anonymous(), d.path("id").asText(), "T", "UML",
+        assertError(updateDiagram(Actor.anonymous(), d.path("id").asString(), "T", "UML",
                 d.path("version").asInt(), dataWith("X"), false), 401);
     }
 
@@ -671,7 +671,7 @@ class DiagramE2eTest extends E2eTestBase {
     void updateDiagramInvalidShareTokenOnlyReturns401() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        assertError(updateDiagram(Actor.shareOnly("deadbeef" + uniq()), d.path("id").asText(), "T", "UML",
+        assertError(updateDiagram(Actor.shareOnly("deadbeef" + uniq()), d.path("id").asString(), "T", "UML",
                 d.path("version").asInt(), dataWith("X"), false), 401);
     }
 
@@ -680,10 +680,10 @@ class DiagramE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         JsonNode target = createDiagram(a, "UML");
         String tokenOfOther = shareToken(a, createDiagramId(a), "edit");
-        Res r = updateDiagram(Actor.shareOnly(tokenOfOther), target.path("id").asText(), "T", "UML",
+        Res r = updateDiagram(Actor.shareOnly(tokenOfOther), target.path("id").asString(), "T", "UML",
                 target.path("version").asInt(), dataWith("X"), null);
         assertStatusIn(r, 401, 403);
-        assertThat(getDiagram(a, target.path("id").asText()).path("data")).isEqualTo(emptyData());
+        assertThat(getDiagram(a, target.path("id").asString()).path("data")).isEqualTo(emptyData());
     }
 
     @Test

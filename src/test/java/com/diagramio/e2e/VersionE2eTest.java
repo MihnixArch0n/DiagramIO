@@ -25,7 +25,7 @@ class VersionE2eTest extends E2eTestBase {
         assertUuid(v.path("diagramId"));
         assertThat(v.path("versionNumber").isInt()).as("versionNumber in %s", v).isTrue();
         assertThat(v.has("note")).isTrue();
-        assertThat(v.path("createdAt").isTextual()).isTrue();
+        assertThat(v.path("createdAt").isString()).isTrue();
         // SPEC-AMBIGUOUS: openapi types `data` as string; we require a JSON object (see DiagramE2eTest).
         assertThat(v.path("data").isObject()).as("data object in %s", v).isTrue();
     }
@@ -41,13 +41,13 @@ class VersionE2eTest extends E2eTestBase {
         assertStatus(r, 201);
         JsonNode v = r.json();
         assertVersionDetailShape(v);
-        assertThat(v.path("diagramId").asText()).isEqualTo(id);
-        assertThat(v.path("note").asText()).isEqualTo("Bản thiết kế ERD Pha 1");
+        assertThat(v.path("diagramId").asString()).isEqualTo(id);
+        assertThat(v.path("note").asString()).isEqualTo("Bản thiết kế ERD Pha 1");
         assertThat(v.path("data")).isEqualTo(dataWith("S1"));
         assertThat(v.path("versionNumber").asInt()).isEqualTo(1);
-        assertThat(v.path("createdBy").asText()).isEqualTo(a.userId());
+        assertThat(v.path("createdBy").asString()).isEqualTo(a.userId());
         String location = r.header("Location");
-        assertThat(location).as("Location header").isNotNull().endsWith("/versions/" + v.path("id").asText());
+        assertThat(location).as("Location header").isNotNull().endsWith("/versions/" + v.path("id").asString());
     }
 
     @Test
@@ -100,7 +100,7 @@ class VersionE2eTest extends E2eTestBase {
     void createVersionStaleClientVersionReturns409() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         setData(a, id, dataWith("NEW"));
         Res r = post(versions(id)).bearer(a.accessToken()).json(obj("note", "x", "version", d.path("version").asInt())).send();
         assertError(r, 409);
@@ -198,13 +198,13 @@ class VersionE2eTest extends E2eTestBase {
         assertThat(r.json().isArray()).as("openapi: array of DiagramVersionSummaryResponse").isTrue();
         List<JsonNode> list = items(r.json());
         assertThat(list).hasSize(3);
-        assertThat(list.get(0).path("note").asText()).isEqualTo("third");
-        assertThat(list.get(2).path("note").asText()).isEqualTo("first");
+        assertThat(list.get(0).path("note").asString()).isEqualTo("third");
+        assertThat(list.get(2).path("note").asString()).isEqualTo("first");
         assertThat(list.get(0).path("versionNumber").asInt()).isEqualTo(3);
         for (JsonNode s : list) {
             assertUuid(s.path("id"));
             assertThat(s.path("versionNumber").isInt()).isTrue();
-            assertThat(s.path("createdAt").isTextual()).isTrue();
+            assertThat(s.path("createdAt").isString()).isTrue();
         }
     }
 
@@ -289,11 +289,11 @@ class VersionE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         setData(a, id, dataWith("D1"));
         JsonNode created = createVersion(a, id, "n");
-        Res r = get(versions(id) + "/" + created.path("id").asText()).bearer(a.accessToken()).send();
+        Res r = get(versions(id) + "/" + created.path("id").asString()).bearer(a.accessToken()).send();
         assertStatus(r, 200);
         assertVersionDetailShape(r.json());
         assertThat(r.json().path("data")).isEqualTo(dataWith("D1"));
-        assertThat(r.json().path("note").asText()).isEqualTo("n");
+        assertThat(r.json().path("note").asString()).isEqualTo("n");
     }
 
     @Test
@@ -302,7 +302,7 @@ class VersionE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         JsonNode v = createVersion(a, id, "n");
         String token = shareToken(a, id, "view");
-        assertStatus(get(versions(id) + "/" + v.path("id").asText()).share(token).send(), 200);
+        assertStatus(get(versions(id) + "/" + v.path("id").asString()).share(token).send(), 200);
     }
 
     @Test
@@ -311,7 +311,7 @@ class VersionE2eTest extends E2eTestBase {
         Actor b = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode v = createVersion(a, id, "n");
-        assertError(get(versions(id) + "/" + v.path("id").asText()).bearer(b.accessToken()).send(), 403);
+        assertError(get(versions(id) + "/" + v.path("id").asString()).bearer(b.accessToken()).send(), 403);
     }
 
     @Test
@@ -319,7 +319,7 @@ class VersionE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode v = createVersion(a, id, "n");
-        assertError(get(versions(id) + "/" + v.path("id").asText()).send(), 401);
+        assertError(get(versions(id) + "/" + v.path("id").asString()).send(), 401);
     }
 
     @Test
@@ -335,7 +335,7 @@ class VersionE2eTest extends E2eTestBase {
         String d1 = createDiagramId(a);
         String d2 = createDiagramId(a);
         JsonNode v = createVersion(a, d1, "n");
-        assertError(get(versions(d2) + "/" + v.path("id").asText()).bearer(a.accessToken()).send(), 404);
+        assertError(get(versions(d2) + "/" + v.path("id").asString()).bearer(a.accessToken()).send(), 404);
     }
 
     @Test
@@ -347,7 +347,7 @@ class VersionE2eTest extends E2eTestBase {
         setData(a, aDiagram, dataWith("A-SECRET"));
         JsonNode v = createVersion(a, aDiagram, "n");
         String bDiagram = createDiagramId(b);
-        Res r = get(versions(bDiagram) + "/" + v.path("id").asText()).bearer(b.accessToken()).send();
+        Res r = get(versions(bDiagram) + "/" + v.path("id").asString()).bearer(b.accessToken()).send();
         assertError(r, 404);
         assertThat(r.body()).doesNotContain("A-SECRET");
     }
@@ -368,10 +368,10 @@ class VersionE2eTest extends E2eTestBase {
         setData(a, id, dataWith("ORIG"));
         JsonNode v = createVersion(a, id, "orig");
         setData(a, id, dataWith("CHANGED"));
-        Res r = get(versions(id) + "/" + v.path("id").asText()).bearer(a.accessToken()).send();
+        Res r = get(versions(id) + "/" + v.path("id").asString()).bearer(a.accessToken()).send();
         assertStatus(r, 200);
         assertThat(r.json().path("data")).isEqualTo(dataWith("ORIG"));
-        assertThat(r.json().path("note").asText()).isEqualTo("orig");
+        assertThat(r.json().path("note").asString()).isEqualTo("orig");
         assertThat(r.json().path("versionNumber").asInt()).isEqualTo(v.path("versionNumber").asInt());
     }
 
@@ -381,7 +381,7 @@ class VersionE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         setData(a, id, dataWith("IMM"));
         JsonNode v = createVersion(a, id, "imm");
-        String url = versions(id) + "/" + v.path("id").asText();
+        String url = versions(id) + "/" + v.path("id").asString();
         Res putRes = put(url).bearer(a.accessToken()).json(obj("note", "hacked")).send();
         Res patchRes = patch(url).bearer(a.accessToken()).json(obj("note", "hacked")).send();
         Res delRes = delete(url).bearer(a.accessToken()).send();
@@ -390,7 +390,7 @@ class VersionE2eTest extends E2eTestBase {
         assertError(patchRes, 405);
         assertError(delRes, 405);
         JsonNode after = get(url).bearer(a.accessToken()).send().json();
-        assertThat(after.path("note").asText()).isEqualTo("imm");
+        assertThat(after.path("note").asString()).isEqualTo("imm");
         assertThat(after.path("data")).isEqualTo(dataWith("IMM"));
     }
 
@@ -400,28 +400,28 @@ class VersionE2eTest extends E2eTestBase {
     void restoreOwnerReturns200BacksUpCurrentThenCopiesSnapshot() {
         Actor a = registerAndLogin();
         JsonNode d0 = createDiagram(a, "ERD", "Keep title");
-        String id = d0.path("id").asText();
+        String id = d0.path("id").asString();
         setData(a, id, dataWith("OLD"));
         JsonNode v1 = createVersion(a, id, "old");
         JsonNode current = setData(a, id, dataWith("CURRENT"));
         int vBefore = current.path("version").asInt();
 
-        Res r = post(versions(id) + "/" + v1.path("id").asText() + "/restore").bearer(a.accessToken()).send();
+        Res r = post(versions(id) + "/" + v1.path("id").asString() + "/restore").bearer(a.accessToken()).send();
         assertStatus(r, 200);
         JsonNode body = r.json();
-        assertThat(body.path("diagramId").asText()).isEqualTo(id);
+        assertThat(body.path("diagramId").asString()).isEqualTo(id);
         assertThat(body.path("data")).isEqualTo(dataWith("OLD"));
         assertThat(body.path("version").asInt()).isEqualTo(vBefore + 1);
-        assertThat(body.path("title").asText()).isEqualTo("Keep title");
-        assertThat(body.path("diagramType").asText()).isEqualTo("ERD");
-        assertThat(body.path("updatedAt").isTextual()).isTrue();
+        assertThat(body.path("title").asString()).isEqualTo("Keep title");
+        assertThat(body.path("diagramType").asString()).isEqualTo("ERD");
+        assertThat(body.path("updatedAt").isString()).isTrue();
         JsonNode backup = body.path("backupVersion");
         assertThat(backup.isObject()).as("backupVersion in %s", body).isTrue();
         assertUuid(backup.path("id"));
         assertThat(backup.path("versionNumber").asInt()).isEqualTo(2);
 
         // backup snapshot holds the pre-restore state
-        Res bk = get(versions(id) + "/" + backup.path("id").asText()).bearer(a.accessToken()).send();
+        Res bk = get(versions(id) + "/" + backup.path("id").asString()).bearer(a.accessToken()).send();
         assertStatus(bk, 200);
         assertThat(bk.json().path("data")).isEqualTo(dataWith("CURRENT"));
 
@@ -429,16 +429,16 @@ class VersionE2eTest extends E2eTestBase {
         JsonNode after = getDiagram(a, id);
         assertThat(after.path("data")).isEqualTo(dataWith("OLD"));
         assertThat(after.path("version").asInt()).isEqualTo(vBefore + 1);
-        assertThat(after.path("title").asText()).isEqualTo("Keep title");
+        assertThat(after.path("title").asString()).isEqualTo("Keep title");
         assertThat(after.path("isPublic").asBoolean()).isFalse();
 
         // the restored snapshot itself is untouched, and the list now has 2 entries, newest first
-        JsonNode v1After = get(versions(id) + "/" + v1.path("id").asText()).bearer(a.accessToken()).send().json();
+        JsonNode v1After = get(versions(id) + "/" + v1.path("id").asString()).bearer(a.accessToken()).send().json();
         assertThat(v1After.path("data")).isEqualTo(dataWith("OLD"));
-        assertThat(v1After.path("note").asText()).isEqualTo("old");
+        assertThat(v1After.path("note").asString()).isEqualTo("old");
         List<JsonNode> list = items(get(versions(id)).bearer(a.accessToken()).send().json());
         assertThat(list).hasSize(2);
-        assertThat(list.get(0).path("id").asText()).isEqualTo(backup.path("id").asText());
+        assertThat(list.get(0).path("id").asString()).isEqualTo(backup.path("id").asString());
     }
 
     @Test
@@ -446,10 +446,10 @@ class VersionE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode v1 = createVersion(a, id, "first");
-        Res r = post(versions(id) + "/" + v1.path("id").asText() + "/restore").bearer(a.accessToken()).send();
+        Res r = post(versions(id) + "/" + v1.path("id").asString() + "/restore").bearer(a.accessToken()).send();
         assertStatus(r, 200);
         // flow doc §6: note = "Auto backup before restoring version N"
-        assertThat(r.json().path("backupVersion").path("note").asText()).containsIgnoringCase("backup");
+        assertThat(r.json().path("backupVersion").path("note").asString()).containsIgnoringCase("backup");
     }
 
     @Test
@@ -459,8 +459,8 @@ class VersionE2eTest extends E2eTestBase {
         setData(a, id, dataWith("A"));
         JsonNode vA = createVersion(a, id, "A");
         setData(a, id, dataWith("B"));
-        JsonNode restore = post(versions(id) + "/" + vA.path("id").asText() + "/restore").bearer(a.accessToken()).send().json();
-        String backupId = restore.path("backupVersion").path("id").asText();
+        JsonNode restore = post(versions(id) + "/" + vA.path("id").asString() + "/restore").bearer(a.accessToken()).send().json();
+        String backupId = restore.path("backupVersion").path("id").asString();
         Res undo = post(versions(id) + "/" + backupId + "/restore").bearer(a.accessToken()).send();
         assertStatus(undo, 200);
         assertThat(getDiagram(a, id).path("data")).isEqualTo(dataWith("B"));
@@ -472,9 +472,9 @@ class VersionE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         JsonNode v1 = createVersion(a, id, "v1");
         JsonNode before = getDiagram(a, id);
-        assertStatus(post(versions(id) + "/" + v1.path("id").asText() + "/restore").bearer(a.accessToken()).send(), 200);
+        assertStatus(post(versions(id) + "/" + v1.path("id").asString() + "/restore").bearer(a.accessToken()).send(), 200);
         // a client still holding the pre-restore version must now get 409
-        Res stale = updateDiagram(a, id, before.path("title").asText(), "UML", before.path("version").asInt(), dataWith("Z"), false);
+        Res stale = updateDiagram(a, id, before.path("title").asString(), "UML", before.path("version").asInt(), dataWith("Z"), false);
         assertError(stale, 409);
     }
 
@@ -486,7 +486,7 @@ class VersionE2eTest extends E2eTestBase {
         JsonNode v = createVersion(a, id, "old");
         setData(a, id, dataWith("NEW"));
         String token = shareToken(a, id, "edit");
-        Res r = post(versions(id) + "/" + v.path("id").asText() + "/restore").share(token).send();
+        Res r = post(versions(id) + "/" + v.path("id").asString() + "/restore").share(token).send();
         assertStatus(r, 200);
         assertThat(getDiagram(a, id).path("data")).isEqualTo(dataWith("OLD"));
     }
@@ -499,7 +499,7 @@ class VersionE2eTest extends E2eTestBase {
         JsonNode v = createVersion(a, id, "old");
         setData(a, id, dataWith("NEW"));
         String token = shareToken(a, id, "view");
-        assertError(post(versions(id) + "/" + v.path("id").asText() + "/restore").share(token).send(), 403);
+        assertError(post(versions(id) + "/" + v.path("id").asString() + "/restore").share(token).send(), 403);
         assertThat(getDiagram(a, id).path("data")).isEqualTo(dataWith("NEW"));
         assertThat(items(get(versions(id)).bearer(a.accessToken()).send().json())).hasSize(1);
     }
@@ -512,7 +512,7 @@ class VersionE2eTest extends E2eTestBase {
         setData(a, id, dataWith("OLD"));
         JsonNode v = createVersion(a, id, "old");
         setData(a, id, dataWith("NEW"));
-        assertError(post(versions(id) + "/" + v.path("id").asText() + "/restore").bearer(b.accessToken()).send(), 403);
+        assertError(post(versions(id) + "/" + v.path("id").asString() + "/restore").bearer(b.accessToken()).send(), 403);
         assertThat(getDiagram(a, id).path("data")).isEqualTo(dataWith("NEW"));
         assertThat(items(get(versions(id)).bearer(a.accessToken()).send().json())).hasSize(1);
     }
@@ -522,7 +522,7 @@ class VersionE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         String id = createDiagramId(a);
         JsonNode v = createVersion(a, id, "old");
-        assertError(post(versions(id) + "/" + v.path("id").asText() + "/restore").send(), 401);
+        assertError(post(versions(id) + "/" + v.path("id").asString() + "/restore").send(), 401);
     }
 
     @Test
@@ -541,7 +541,7 @@ class VersionE2eTest extends E2eTestBase {
         setData(a, d1, dataWith("D1"));
         JsonNode v = createVersion(a, d1, "d1");
         setData(a, d2, dataWith("D2"));
-        assertError(post(versions(d2) + "/" + v.path("id").asText() + "/restore").bearer(a.accessToken()).send(), 404);
+        assertError(post(versions(d2) + "/" + v.path("id").asString() + "/restore").bearer(a.accessToken()).send(), 404);
         assertThat(getDiagram(a, d2).path("data")).isEqualTo(dataWith("D2"));
         assertThat(items(get(versions(d2)).bearer(a.accessToken()).send().json())).isEmpty();
     }

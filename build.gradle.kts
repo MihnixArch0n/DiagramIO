@@ -49,6 +49,10 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
+tasks.withType<JavaCompile> {
+    options.compilerArgs.addAll(listOf("-parameters", "-Xlint:deprecation"))
+}
+
 tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun> {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
     val podmanSock = file("/run/user/1000/podman/podman.sock")

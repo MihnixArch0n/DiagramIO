@@ -220,13 +220,13 @@ public abstract class E2eTestBase {
     protected static void assertErrorBody(Res res) {
         JsonNode j = res.json();
         assertThat(j.isObject()).as("error body must be a JSON object: %s", res.body()).isTrue();
-        assertThat(j.path("timestamp").isTextual()).as("timestamp in %s", res.body()).isTrue();
+        assertThat(j.path("timestamp").isString()).as("timestamp in %s", res.body()).isTrue();
         assertThat(j.path("status").isInt()).as("status in %s", res.body()).isTrue();
         assertThat(j.path("status").asInt()).as("status field matches HTTP status").isEqualTo(res.status());
-        assertThat(j.path("error").isTextual()).as("error in %s", res.body()).isTrue();
+        assertThat(j.path("error").isString()).as("error in %s", res.body()).isTrue();
         assertThat(j.has("message")).as("message in %s", res.body()).isTrue();
-        assertThat(j.path("path").isTextual()).as("path in %s", res.body()).isTrue();
-        assertThat(j.path("path").asText()).startsWith(API);
+        assertThat(j.path("path").isString()).as("path in %s", res.body()).isTrue();
+        assertThat(j.path("path").asString()).startsWith(API);
     }
 
     protected static void assertStatusIn(Res res, Integer... allowed) {
@@ -238,8 +238,8 @@ public abstract class E2eTestBase {
     }
 
     protected static void assertUuid(JsonNode n) {
-        assertThat(n.isTextual()).as("expected uuid string but was %s", n).isTrue();
-        UUID.fromString(n.asText());
+        assertThat(n.isString()).as("expected uuid string but was %s", n).isTrue();
+        UUID.fromString(n.asString());
     }
 
     // ------------------------------------------------------------------ fixtures
@@ -276,8 +276,8 @@ public abstract class E2eTestBase {
         assertThat(r.status()).as("register fixture: %s", r.body()).isEqualTo(201);
         Res l = login(email, PASSWORD);
         assertThat(l.status()).as("login fixture: %s", l.body()).isEqualTo(200);
-        return new Actor(r.json().path("id").asText(), email, u,
-                l.json().path("accessToken").asText(), l.json().path("refreshToken").asText(), null);
+        return new Actor(r.json().path("id").asString(), email, u,
+                l.json().path("accessToken").asString(), l.json().path("refreshToken").asString(), null);
     }
 
     protected JsonNode createDiagram(Actor owner, String type) {
@@ -292,7 +292,7 @@ public abstract class E2eTestBase {
     }
 
     protected String createDiagramId(Actor owner) {
-        return createDiagram(owner, "UML").path("id").asText();
+        return createDiagram(owner, "UML").path("id").asString();
     }
 
     protected JsonNode getDiagram(Actor owner, String id) {
@@ -315,7 +315,7 @@ public abstract class E2eTestBase {
     /** Owner sets data (and keeps metadata); returns new state. */
     protected JsonNode setData(Actor owner, String id, JsonNode data) {
         JsonNode cur = getDiagram(owner, id);
-        Res r = updateDiagram(owner, id, cur.path("title").asText(), cur.path("diagramType").asText(),
+        Res r = updateDiagram(owner, id, cur.path("title").asString(), cur.path("diagramType").asString(),
                 cur.path("version").asInt(), data, cur.path("isPublic").asBoolean());
         assertThat(r.status()).as("update fixture: %s", r.body()).isEqualTo(200);
         return r.json();
@@ -323,7 +323,7 @@ public abstract class E2eTestBase {
 
     protected JsonNode setPublic(Actor owner, String id, boolean isPublic) {
         JsonNode cur = getDiagram(owner, id);
-        Res r = updateDiagram(owner, id, cur.path("title").asText(), cur.path("diagramType").asText(),
+        Res r = updateDiagram(owner, id, cur.path("title").asString(), cur.path("diagramType").asString(),
                 cur.path("version").asInt(), cur.path("data"), isPublic);
         assertThat(r.status()).as("set public fixture: %s", r.body()).isEqualTo(200);
         assertThat(r.json().path("isPublic").asBoolean()).isEqualTo(isPublic);
@@ -338,7 +338,7 @@ public abstract class E2eTestBase {
     }
 
     protected String shareToken(Actor owner, String diagramId, String role) {
-        return createShare(owner, diagramId, role).path("shareToken").asText();
+        return createShare(owner, diagramId, role).path("shareToken").asString();
     }
 
     protected JsonNode createVersion(Actor actor, String diagramId, String note) {
@@ -364,7 +364,7 @@ public abstract class E2eTestBase {
     }
 
     protected static boolean containsId(List<JsonNode> items, String id) {
-        return items.stream().anyMatch(n -> id.equals(n.path("id").asText()));
+        return items.stream().anyMatch(n -> id.equals(n.path("id").asString()));
     }
 
     protected static List<JsonNode> filter(List<JsonNode> items, Predicate<JsonNode> p) {

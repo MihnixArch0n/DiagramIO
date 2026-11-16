@@ -11,8 +11,8 @@ class CrossCuttingE2eTest extends E2eTestBase {
     void unauthenticatedErrorUsesUniformErrorBody() {
         Res r = get(API + "/users/me").send();
         assertError(r, 401);
-        assertThat(r.json().path("path").asText()).isEqualTo(API + "/users/me");
-        assertThat(r.json().path("error").asText()).isEqualTo("Unauthorized");
+        assertThat(r.json().path("path").asString()).isEqualTo(API + "/users/me");
+        assertThat(r.json().path("error").asString()).isEqualTo("Unauthorized");
     }
 
     @Test
@@ -22,8 +22,8 @@ class CrossCuttingE2eTest extends E2eTestBase {
         String id = createDiagramId(a);
         Res r = get(API + "/diagrams/" + id).bearer(b.accessToken()).send();
         assertError(r, 403);
-        assertThat(r.json().path("error").asText()).isEqualTo("Forbidden");
-        assertThat(r.json().path("path").asText()).isEqualTo(API + "/diagrams/" + id);
+        assertThat(r.json().path("error").asString()).isEqualTo("Forbidden");
+        assertThat(r.json().path("path").asString()).isEqualTo(API + "/diagrams/" + id);
     }
 
     @Test
@@ -31,8 +31,8 @@ class CrossCuttingE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         Res r = post(API + "/diagrams").bearer(a.accessToken()).json(obj("title", "x", "diagramType", "NOPE")).send();
         assertError(r, 400);
-        assertThat(r.json().path("error").asText()).isEqualTo("Bad Request");
-        assertThat(r.json().path("message").asText()).isNotBlank();
+        assertThat(r.json().path("error").asString()).isEqualTo("Bad Request");
+        assertThat(r.json().path("message").asString()).isNotBlank();
     }
 
     @Test
@@ -40,7 +40,7 @@ class CrossCuttingE2eTest extends E2eTestBase {
         Actor a = registerAndLogin();
         Res r = register("u" + uniq(), a.email(), PASSWORD);
         assertError(r, 409);
-        assertThat(r.json().path("error").asText()).isEqualTo("Conflict");
+        assertThat(r.json().path("error").asString()).isEqualTo("Conflict");
     }
 
     @Test
@@ -156,7 +156,7 @@ class CrossCuttingE2eTest extends E2eTestBase {
                 "SharedDiagramResponse", "UpdateDiagramRequest"}) {
             JsonNode data = schemas.path(name).path("properties").path("data");
             assertThat(data.isMissingNode()).as("%s.data present", name).isFalse();
-            assertThat(data.path("type").asText()).as("%s.data type", name).isEqualTo("object");
+            assertThat(data.path("type").asString()).as("%s.data type", name).isEqualTo("object");
         }
     }
 
@@ -198,7 +198,7 @@ class CrossCuttingE2eTest extends E2eTestBase {
     void unsupportedContentTypeOnPutReturns415AndLeavesDiagramUnchanged() {
         Actor a = registerAndLogin();
         JsonNode d = createDiagram(a, "UML");
-        String id = d.path("id").asText();
+        String id = d.path("id").asString();
         Res r = put(API + "/diagrams/" + id).bearer(a.accessToken()).header("Content-Type", "application/xml")
                 .rawJson("<diagram/>").send();
         assertError(r, 415);

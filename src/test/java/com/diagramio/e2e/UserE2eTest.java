@@ -15,10 +15,10 @@ class UserE2eTest extends E2eTestBase {
         Res r = get(API + "/users/me").bearer(a.accessToken()).send();
         assertStatus(r, 200);
         JsonNode j = r.json();
-        assertThat(j.path("id").asText()).isEqualTo(a.userId());
-        assertThat(j.path("email").asText()).isEqualTo(a.email());
-        assertThat(j.path("username").asText()).isEqualTo(a.username());
-        assertThat(j.path("createdAt").isTextual()).isTrue();
+        assertThat(j.path("id").asString()).isEqualTo(a.userId());
+        assertThat(j.path("email").asString()).isEqualTo(a.email());
+        assertThat(j.path("username").asString()).isEqualTo(a.username());
+        assertThat(j.path("createdAt").isString()).isTrue();
         assertThat(j.has("password")).isFalse();
         assertThat(j.has("passwordHash")).isFalse();
         assertThat(r.body()).doesNotContain("$2a$").doesNotContain("$2b$");
