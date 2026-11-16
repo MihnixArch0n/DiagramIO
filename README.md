@@ -27,7 +27,7 @@ Pha 1 không làm: giao diện frontend và canvas; cộng tác thời gian th�
 | Thành phần | Lựa chọn |
 |---|---|
 | Ngôn ngữ, framework | Java 25, Spring Boot 4.1.2 (WebMvc, Validation, Security) |
-| CSDL | PostgreSQL 15, Spring Data JPA, Flyway quản lý schema |
+| CSDL | PostgreSQL 18, Spring Data JPA, Flyway quản lý schema |
 | Xác thực | JWT (jjwt), BCrypt, refresh token lưu dạng SHA-256 |
 | Tài liệu API | springdoc-openapi (Swagger UI) |
 | Đóng gói | Docker, Docker Compose |

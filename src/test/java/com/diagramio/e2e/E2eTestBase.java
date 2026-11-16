@@ -33,7 +33,7 @@ import tools.jackson.databind.node.ObjectNode;
 public abstract class E2eTestBase {
 
     @ServiceConnection
-    public static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:15-alpine");
+    public static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
     static {
         postgres.start();
