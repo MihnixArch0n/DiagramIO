@@ -31,7 +31,7 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     public Diagram save(Diagram diagram) {
         try {
             return mapper.toDomain(repository.saveAndFlush(mapper.toEntity(diagram)));
-        } catch (OptimisticLockingFailureException ex) {
+        } catch (OptimisticLockingFailureException _) {
             Integer currentVersion = repository.findById(diagram.getId()).map(DiagramEntity::getVersion).orElse(null);
             throw new OptimisticLockConflictException(diagram.getId(), diagram.getVersion(), currentVersion);
         }

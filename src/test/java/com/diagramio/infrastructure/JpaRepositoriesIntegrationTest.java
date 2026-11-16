@@ -27,7 +27,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Chạy Flyway + Hibernate (ddl-auto: validate) trên PostgreSQL thật.
@@ -39,7 +39,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 class JpaRepositoriesIntegrationTest {
 
     @ServiceConnection
-    static final PostgreSQLContainer<?> postgres = E2eTestBase.postgres;
+    static final PostgreSQLContainer postgres = E2eTestBase.postgres;
 
     /** Người dùng mẫu được seed trong V2. */
     private static final UUID SEED_USER = UUID.fromString("11111111-1111-1111-1111-111111111111");

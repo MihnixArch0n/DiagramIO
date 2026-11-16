@@ -7,16 +7,14 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Nội dung JSON của sơ đồ (nodes, edges). Luật "hợp lệ" chỉ nằm ở đây:
- * <ul>
- *   <li>{@link #of(String)} cho dữ liệu người dùng gửi lên: phải là object có mảng "nodes" và "edges",
- *       tối đa 2 MB, sai thì 400;</li>
- *   <li>{@link #fromStorage(String)} cho dữ liệu đọc từ CSDL: đã kiểm tra lúc ghi nên không parse lại
- *       (tránh parse tới 2 MB mỗi lần đọc sơ đồ hay phiên bản).</li>
- * </ul>
- * Snapshot phiên bản và sơ đồ cùng dùng kiểu này nên không thể chứa dữ liệu sai cấu trúc.
- */
+/// Nội dung JSON của sơ đồ (nodes, edges). Luật "hợp lệ" chỉ nằm ở đây:
+///
+/// - {@link #of(String)} cho dữ liệu người dùng gửi lên: phải là object có mảng "nodes" và "edges",
+///   tối đa 2 MB, sai thì 400;
+/// - {@link #fromStorage(String)} cho dữ liệu đọc từ CSDL: đã kiểm tra lúc ghi nên không parse lại
+///   (tránh parse tới 2 MB mỗi lần đọc sơ đồ hay phiên bản).
+///
+/// Snapshot phiên bản và sơ đồ cùng dùng kiểu này nên không thể chứa dữ liệu sai cấu trúc.
 public final class DiagramData {
 
     public static final int MAX_BYTES = 2 * 1024 * 1024;
@@ -41,7 +39,7 @@ public final class DiagramData {
         JsonNode root;
         try {
             root = OBJECT_MAPPER.readTree(json);
-        } catch (JacksonException e) {
+        } catch (JacksonException _) {
             throw new InvalidInputException("data must be valid JSON");
         }
         if (root == null || !root.isObject() || !root.path("nodes").isArray() || !root.path("edges").isArray()) {

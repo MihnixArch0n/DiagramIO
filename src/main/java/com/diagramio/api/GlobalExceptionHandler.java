@@ -88,22 +88,14 @@ public class GlobalExceptionHandler {
     }
 
     private HttpStatus statusOf(DomainException ex) {
-        if (ex instanceof NotFoundException) {
-            return HttpStatus.NOT_FOUND;
-        }
-        if (ex instanceof ForbiddenException) {
-            return HttpStatus.FORBIDDEN;
-        }
-        if (ex instanceof UnauthorizedException) {
-            return HttpStatus.UNAUTHORIZED;
-        }
-        if (ex instanceof ConflictException) {
-            return HttpStatus.CONFLICT;
-        }
-        if (ex instanceof InvalidInputException) {
-            return HttpStatus.BAD_REQUEST;
-        }
-        return HttpStatus.INTERNAL_SERVER_ERROR;
+        return switch (ex) {
+            case NotFoundException _ -> HttpStatus.NOT_FOUND;
+            case ForbiddenException _ -> HttpStatus.FORBIDDEN;
+            case UnauthorizedException _ -> HttpStatus.UNAUTHORIZED;
+            case ConflictException _ -> HttpStatus.CONFLICT;
+            case InvalidInputException _ -> HttpStatus.BAD_REQUEST;
+            case null -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
     }
 
     private ResponseEntity<ErrorResponse> build(HttpStatus status, String message, HttpServletRequest request) {

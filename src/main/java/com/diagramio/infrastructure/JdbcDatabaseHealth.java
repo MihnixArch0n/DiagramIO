@@ -19,7 +19,7 @@ public class JdbcDatabaseHealth implements DatabaseHealth {
     public boolean isUp() {
         try {
             return Integer.valueOf(1).equals(jdbcTemplate.queryForObject("select 1", Integer.class));
-        } catch (DataAccessException ex) {
+        } catch (DataAccessException _) {
             return false;
         }
     }

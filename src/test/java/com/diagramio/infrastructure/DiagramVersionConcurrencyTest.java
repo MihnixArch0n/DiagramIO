@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Nhiều luồng gọi lưu/khôi phục cùng lúc trên PostgreSQL thật: các yêu cầu phải xếp hàng
@@ -37,7 +37,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 class DiagramVersionConcurrencyTest {
 
     @ServiceConnection
-    static final PostgreSQLContainer<?> postgres = E2eTestBase.postgres;
+    static final PostgreSQLContainer postgres = E2eTestBase.postgres;
 
     /** Người dùng mẫu được seed trong V2. */
     private static final UUID SEED_USER = UUID.fromString("11111111-1111-1111-1111-111111111111");

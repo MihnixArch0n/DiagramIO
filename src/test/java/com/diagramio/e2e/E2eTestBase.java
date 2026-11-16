@@ -16,7 +16,7 @@ import java.util.function.Predicate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -33,7 +33,7 @@ import tools.jackson.databind.node.ObjectNode;
 public abstract class E2eTestBase {
 
     @ServiceConnection
-    public static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+    public static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:15-alpine");
 
     static {
         postgres.start();

@@ -16,7 +16,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Chạy với Postgres thật (Testcontainers); Flyway tạo bảng như khi chạy app.
@@ -29,7 +29,7 @@ class RepositoryAdaptersTest {
     private static final UUID SAMPLE_USER_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @ServiceConnection
-    static final PostgreSQLContainer<?> postgres = E2eTestBase.postgres;
+    static final PostgreSQLContainer postgres = E2eTestBase.postgres;
 
     @Autowired
     private UserRepositoryAdapter users;

@@ -53,7 +53,7 @@ public class CallerArgumentResolver implements HandlerMethodArgumentResolver {
         // Principal khác (ví dụ test đặt thẳng UUID): tên là id người dùng
         try {
             return Caller.user(UUID.fromString(authentication.getName()));
-        } catch (IllegalArgumentException ex) {
+        } catch (IllegalArgumentException _) {
             throw new UnauthorizedException("Authentication required");
         }
     }

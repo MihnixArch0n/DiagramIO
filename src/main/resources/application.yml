@@ -1,6 +1,9 @@
 spring:
   application:
     name: diagramio
+  threads:
+    virtual:
+      enabled: true
   datasource:
     # Mặc định khớp docker-compose.yml; ghi đè bằng biến môi trường SPRING_DATASOURCE_*
     url: jdbc:postgresql://localhost:5432/diagram_app

@@ -9,8 +9,9 @@ version = "0.0.1-SNAPSHOT"
 description = "Backend REST API cho dịch vụ vẽ sơ đồ UML/ERD trực tuyến"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
 }
 
 repositories {
@@ -49,6 +50,7 @@ dependencies {
 }
 
 tasks.withType<org.springframework.boot.gradle.tasks.run.BootRun> {
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
     val podmanSock = file("/run/user/1000/podman/podman.sock")
     if (podmanSock.exists() && System.getenv("DOCKER_HOST") == null) {
         environment("DOCKER_HOST", "unix://${podmanSock.absolutePath}")

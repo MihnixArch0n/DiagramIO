@@ -56,7 +56,7 @@ public class JwtTokenProvider implements TokenIssuer {
                     .getPayload()
                     .getSubject();
             return Optional.of(UUID.fromString(subject));
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (JwtException | IllegalArgumentException _) {
             return Optional.empty();
         }
     }
