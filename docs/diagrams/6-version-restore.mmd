@@ -1,0 +1,10 @@
+flowchart TD
+    A([User restores version]) --> L[Lock diagram row<br/>SELECT ... FOR UPDATE]
+    L --> C{Diagram exists & can edit?}
+    C -- No --> E1([404 Not Found / 403 Forbidden])
+    C -- Yes --> F{Target version exists for diagram?}
+    F -- No --> E2([404 Not Found])
+    F -- Yes --> B[Auto-backup current state as new snapshot]
+    B --> G[Copy snapshot data into diagram content]
+    G --> S[Persist diagram & increment version]
+    S --> OK([Success 200 OK])

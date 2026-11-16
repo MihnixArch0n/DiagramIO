@@ -1,0 +1,11 @@
+flowchart TD
+    A([User saves version snapshot]) --> B{Valid note <= 255 chars?}
+    B -- No --> E1([400 Bad Request])
+    B -- Yes --> L[Lock diagram row<br/>SELECT ... FOR UPDATE]
+    L --> C{Diagram exists & can edit?}
+    C -- No --> E2([404 Not Found / 403 Forbidden])
+    C -- Yes --> V{Optional version matches DB?}
+    V -- No --> E3([409 Conflict])
+    V -- Yes --> N[Compute next versionNumber = max + 1]
+    N --> S[Save immutable snapshot in transaction]
+    S --> OK([Success 201 Created])

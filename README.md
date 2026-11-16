@@ -1,6 +1,6 @@
 # DiagramIO
 
-DiagramIO là backend REST API (JSON) cho một web vẽ sơ đồ UML và ERD trực tuyến: quản lý tài khoản, lưu trữ sơ đồ, lịch sử phiên bản và chia sẻ sơ đồ qua link. Đây là bài tập lớn môn Kiến trúc phần mềm, pha 1. Bản này là baseline, ưu tiên chạy đúng và đơn giản; hiệu năng được đo trên Kaggle CPU để làm mốc so sánh cho pha 2.
+DiagramIO là backend REST API (JSON) cho một web vẽ sơ đồ UML và ERD trực tuyến: quản lý tài khoản, lưu trữ sơ đồ, lịch sử phiên bản và chia sẻ sơ đồ qua link. Đây là bài tập lớn môn Kiến trúc phần mềm. Dự án đã hoàn thành **Pha 1 (hệ thống baseline)** và đang triển khai **Pha 2 (cải tiến kiến trúc theo các thuộc tính chất lượng)**. Mọi cải tiến đều được đo lường đối chứng Trước/Sau trên cùng môi trường Kaggle CPU.
 
 | Thành viên | Phụ trách |
 |---|---|
@@ -69,7 +69,7 @@ Một số điểm thiết kế chính:
 
 ## 4. Đặc tả API
 
-Mọi endpoint có tiền tố `/api/v1`. Đặc tả đầy đủ (request, response, mã lỗi) nằm trong [docs/openapi.yaml](docs/openapi.yaml); khi app đang chạy có thể xem và gọi thử trên Swagger UI tại `http://localhost:8080/swagger-ui.html`. Các luồng xử lý phức tạp được vẽ trong [docs/luong-nghiep-vu.md](docs/luong-nghiep-vu.md).
+Mọi endpoint có tiền tố `/api/v1`. Đặc tả đầy đủ (request, response, mã lỗi) nằm trong [docs/openapi.yaml](docs/openapi.yaml); khi app đang chạy có thể xem và gọi thử trên Swagger UI tại `http://localhost:8080/swagger-ui.html`. Các luồng xử lý phức tạp được mô tả bằng Mermaid trong [docs/business-workflows.md](docs/business-workflows.md).
 
 | Nhóm | Method | Endpoint | Mô tả | Quyền |
 |---|---|---|---|---|
@@ -244,7 +244,7 @@ Toàn bộ hệ thống gồm ứng dụng Spring Boot (Java 21), CSDL PostgreSQ
 
 ## 7. Hướng cải tiến cho pha 2
 
-Baseline cố ý chưa tối ưu. Các hướng dưới đây đều đo được trước và sau bằng cùng kịch bản ở mục 6.
+Baseline cố ý chưa tối ưu để làm mốc đối chứng. Chi tiết về cây thuộc tính chất lượng (Utility Tree), kịch bản đo kiểm Locust và bảng đối chứng Trước/Sau được mô tả đầy đủ tại [docs/phase2-quality-attributes.md](docs/phase2-quality-attributes.md). Các hướng gợi ý dưới đây đều đo được trước và sau bằng cùng kịch bản ở mục 6:
 
 | Thuộc tính | Hiện trạng | Hướng cải tiến |
 |---|---|---|
@@ -259,5 +259,6 @@ Baseline cố ý chưa tối ưu. Các hướng dưới đây đều đo đượ
 
 ## 8. Tài liệu liên quan
 
+- [docs/phase2-quality-attributes.md](docs/phase2-quality-attributes.md): chiến lược thuộc tính chất lượng, kịch bản tải và quy trình đối chứng Before & After cho Pha 2.
 - [docs/openapi.yaml](docs/openapi.yaml): đặc tả API dạng OpenAPI 3.1. Xem trực quan bằng cách mở file trong [Swagger Editor](https://editor.swagger.io) (File, Import file) hoặc extension OpenAPI của VS Code.
-- [docs/luong-nghiep-vu.md](docs/luong-nghiep-vu.md): flowchart các luồng xác thực, phân quyền, cập nhật sơ đồ, phiên bản và chia sẻ.
+- [docs/business-workflows.md](docs/business-workflows.md): tài liệu luồng nghiệp vụ và sơ đồ Mermaid về xác thực, phân quyền, cập nhật sơ đồ, phiên bản và chia sẻ.

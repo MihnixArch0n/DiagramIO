@@ -1,0 +1,10 @@
+flowchart TD
+    A([Owner creates share link with view or edit role]) --> B[Receive shareUrl & token]
+    B --> D[Recipient accesses shareUrl / API]
+    X[Owner updates role or revokes link] -. Immediately effective .-> E{Link active in DB?}
+    D --> E
+    E -- No --> ERR([404 Not Found])
+    E -- Yes --> F[Call API endpoints with X-Share-Token]
+    F --> R{Link role?}
+    R -- view --> V[Read-only Access<br/>View Diagram, View History]
+    R -- edit --> W[Editor Access<br/>View, Edit, Snapshot, Restore]

@@ -1,0 +1,9 @@
+flowchart TD
+    A([User operates on diagram D]) --> O{Is owner of D?}
+    O -- Yes --> ALL[Full Access<br/>Manage, Edit, Restore, Snapshot, View]
+    O -- No --> L{Has share link for D?}
+    L -- Yes, edit link --> ED[Edit Access<br/>View, View History, Edit, Snapshot, Restore]
+    L -- Yes, view link --> VW[View Access<br/>View, View History]
+    L -- No --> P{Is diagram D public?}
+    P -- Yes --> PV[Public View<br/>View content only]
+    P -- No --> NO([403 Forbidden])

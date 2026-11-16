@@ -1,0 +1,9 @@
+flowchart TD
+    A([User requests token refresh]) --> B{Has refreshToken in body?}
+    B -- No --> E1([400 Bad Request])
+    B -- Yes --> C[Query token by SHA-256 hash]
+    C --> E{Token active & not expired?}
+    E -- No --> E2([401 Unauthorized])
+    E -- Yes --> F[Revoke old refresh token]
+    F --> G[Issue new access token & rotated refresh token]
+    G --> OK([Success 200 OK])

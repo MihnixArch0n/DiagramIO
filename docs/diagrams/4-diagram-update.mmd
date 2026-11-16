@@ -1,0 +1,13 @@
+flowchart TD
+    A([User submits diagram update]) --> B{Authenticated & valid format?}
+    B -- No --> E1([400 Bad Request / 401 Unauthorized])
+    B -- Yes --> C{Diagram exists & can edit?}
+    C -- No --> E2([404 Not Found / 403 Forbidden])
+    C -- Yes --> V{Client version matches DB?}
+    V -- No --> E3([409 Conflict])
+    V -- Yes --> J{Valid DiagramData structure & <= 2MB?}
+    J -- No --> E4([400 Bad Request])
+    J -- Yes --> S[Persist diagram & increment version]
+    S --> R{Concurrent update conflict?}
+    R -- Yes --> E5([409 Conflict])
+    R -- No --> OK([Success 200 OK])

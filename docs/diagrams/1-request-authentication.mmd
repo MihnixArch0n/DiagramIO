@@ -1,0 +1,15 @@
+flowchart TD
+    A([User sends request]) --> B{Has valid JWT?}
+    B -- Yes --> C[Record userId]
+    B -- No --> D{Has share token?}
+    C --> D
+    D -- Yes --> F[Record diagram & link permissions]
+    D -- No --> H{Public endpoint?}
+    F --> H
+    H -- Yes --> K[Controller & service process with Caller]
+    H -- No --> I{Caller identified?}
+    I -- Yes --> K
+    I -- No --> E1([401 Unauthorized])
+    K --> Q{Authorized & valid data?}
+    Q -- Yes --> OK([Success 200 / 201 / 204])
+    Q -- No --> E2([Error 400 / 403 / 404 / 409])
