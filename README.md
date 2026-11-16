@@ -126,7 +126,7 @@ Mọi lỗi trả cùng một khung JSON:
 
 ## 5. Cách chạy
 
-Chỉ cần Docker để chạy toàn bộ hệ thống. Muốn chạy app từ IDE hoặc chạy test thì cần thêm JDK 21.
+Chỉ cần Docker để chạy toàn bộ hệ thống. Muốn chạy app từ IDE hoặc chạy test thì cần thêm JDK 25.
 
 Chạy toàn bộ bằng Docker:
 
