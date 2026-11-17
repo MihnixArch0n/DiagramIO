@@ -1,6 +1,7 @@
 package com.diagramio.config;
 
 import com.diagramio.domain.diagram.DiagramRepository;
+import com.diagramio.domain.diagram.CachedDiagramReader;
 import com.diagramio.domain.share.DiagramShareRepository;
 import com.diagramio.domain.share.ShareService;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +16,15 @@ import org.springframework.context.annotation.Configuration;
 public class ShareConfig {
 
     @Bean
-    public ShareService shareService(DiagramShareRepository shareRepository, DiagramRepository diagramRepository) {
-        return new ShareService(shareRepository, diagramRepository);
+    public ShareService shareService(
+            DiagramShareRepository shareRepository,
+            DiagramRepository diagramRepository,
+            CachedDiagramReader cachedDiagramReader
+    ) {
+        return new ShareService(
+                shareRepository,
+                diagramRepository,
+                cachedDiagramReader
+        );
     }
 }

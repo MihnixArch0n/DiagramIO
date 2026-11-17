@@ -30,6 +30,7 @@ dependencies {
     implementation(libs.springdoc.openapi)
     developmentOnly(libs.spring.boot.docker.compose)
 
+    implementation(libs.caffeine)
     implementation(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)
     runtimeOnly(libs.jjwt.jackson)

@@ -6,6 +6,8 @@ import com.diagramio.domain.access.Permission;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.exception.NotFoundException;
 import com.diagramio.domain.diagram.Diagram;
+import com.diagramio.domain.diagram.CachedDiagramReader;
+import com.diagramio.domain.diagram.DiagramReadSnapshot;
 import com.diagramio.domain.diagram.DiagramRepository;
 
 import java.security.SecureRandom;
@@ -25,13 +27,28 @@ public class ShareService {
 
     private final DiagramShareRepository shareRepository;
     private final DiagramRepository diagramRepository;
+    private final CachedDiagramReader cachedDiagramReader;
     private final DiagramAccess access;
     private final SecureRandom secureRandom = new SecureRandom();
 
-    public ShareService(DiagramShareRepository shareRepository, DiagramRepository diagramRepository) {
-        this.shareRepository = Objects.requireNonNull(shareRepository, "shareRepository must not be null");
-        this.diagramRepository = Objects.requireNonNull(diagramRepository, "diagramRepository must not be null");
+    public ShareService(
+            DiagramShareRepository shareRepository,
+            DiagramRepository diagramRepository
+    ) {
+        this(shareRepository, diagramRepository, null);
+    }
+
+    public ShareService(
+            DiagramShareRepository shareRepository,
+            DiagramRepository diagramRepository,
+            CachedDiagramReader cachedDiagramReader
+    ) {
+        this.shareRepository = Objects.requireNonNull(
+                shareRepository, "shareRepository must not be null");
+        this.diagramRepository = Objects.requireNonNull(
+                diagramRepository, "diagramRepository must not be null");
         this.access = new DiagramAccess(diagramRepository);
+        this.cachedDiagramReader = cachedDiagramReader;
     }
 
     /**
@@ -93,6 +110,23 @@ public class ShareService {
 
         DiagramShare share = shareRepository.findByShareToken(token.trim())
                 .orElseThrow(() -> new NotFoundException("Share token does not exist or has been revoked"));
+
+        if (cachedDiagramReader != null) {
+            DiagramReadSnapshot snapshot =
+                    cachedDiagramReader.findById(share.getDiagramId());
+
+            return new SharedDiagramView(
+                    snapshot.diagramId(),
+                    snapshot.title(),
+                    snapshot.diagramType(),
+                    snapshot.data(),
+                    share.getRole(),
+                    snapshot.version(),
+                    snapshot.isPublic(),
+                    snapshot.createdAt(),
+                    snapshot.updatedAt()
+            );
+        }
 
         Diagram diagram = diagramRepository.findById(share.getDiagramId())
                 .orElseThrow(() -> new NotFoundException("Shared diagram no longer exists"));
