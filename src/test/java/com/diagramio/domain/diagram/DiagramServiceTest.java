@@ -18,6 +18,7 @@ import com.diagramio.domain.exception.ForbiddenException;
 import com.diagramio.domain.exception.InvalidInputException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import com.diagramio.domain.exception.UnauthorizedException;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -224,6 +225,34 @@ class DiagramServiceTest {
         service.deleteDiagram(id, Caller.user(diagram.getOwnerId()));
 
         verify(repository).deleteById(id);
+    }
+
+    @Test
+    void getDiagramSummariesByOwnerDelegatesToRepository() {
+        UUID ownerId = UUID.randomUUID();
+        DiagramSummary summary = new DiagramSummary(UUID.randomUUID(), "Orders", DiagramType.ERD, 1,
+                false, ownerId, null, null, null);
+        when(repository.findSummariesByOwner(ownerId, DiagramType.ERD, "Orders", 0, 10))
+                .thenReturn(List.of(summary));
+
+        List<DiagramSummary> result = service.getDiagramSummariesByOwner(ownerId, DiagramType.ERD, "  Orders  ", 0, 10);
+
+        assertEquals(1, result.size());
+        assertEquals(summary, result.getFirst());
+        verify(repository).findSummariesByOwner(ownerId, DiagramType.ERD, "Orders", 0, 10);
+    }
+
+    @Test
+    void getPublicDiagramSummariesDelegatesToRepository() {
+        DiagramSummary summary = new DiagramSummary(UUID.randomUUID(), "Public", DiagramType.UML, 1,
+                true, UUID.randomUUID(), null, null, null);
+        when(repository.findPublicDiagramSummaries(0, 20)).thenReturn(List.of(summary));
+
+        List<DiagramSummary> result = service.getPublicDiagramSummaries(0, 20);
+
+        assertEquals(1, result.size());
+        assertEquals(summary, result.getFirst());
+        verify(repository).findPublicDiagramSummaries(0, 20);
     }
 
     private Diagram diagram(UUID id, int version) {

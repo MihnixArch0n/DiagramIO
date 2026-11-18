@@ -20,4 +20,18 @@ public interface DiagramJpaRepository extends JpaRepository<DiagramEntity, UUID>
             Pageable pageable);
 
     Page<DiagramEntity> findByIsPublicTrue(Pageable pageable);
+
+    Page<DiagramSummaryRecord> findSummaryByOwnerId(UUID ownerId, Pageable pageable);
+
+    Page<DiagramSummaryRecord> findSummaryByOwnerIdAndDiagramType(
+            UUID ownerId, String diagramType, Pageable pageable);
+
+    Page<DiagramSummaryRecord> findSummaryByOwnerIdAndTitleContainingIgnoreCase(
+            UUID ownerId, String title, Pageable pageable);
+
+    Page<DiagramSummaryRecord> findSummaryByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
+            UUID ownerId, String diagramType, String title,
+            Pageable pageable);
+
+    Page<DiagramSummaryRecord> findSummaryByIsPublicTrue(Pageable pageable);
 }

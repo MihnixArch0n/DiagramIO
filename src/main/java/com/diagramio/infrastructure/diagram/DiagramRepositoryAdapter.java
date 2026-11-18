@@ -2,6 +2,7 @@ package com.diagramio.infrastructure.diagram;
 
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramRepository;
+import com.diagramio.domain.diagram.DiagramSummary;
 import com.diagramio.domain.diagram.DiagramType;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import java.util.List;
@@ -50,6 +51,13 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     }
 
     @Override
+    public List<DiagramSummary> findSummariesByOwner(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
+        return findSummaryPage(ownerId, diagramType, title, PageRequest.of(page, size))
+                .map(this::toSummaryDomain)
+                .getContent();
+    }
+
+    @Override
     public long countByOwnerId(UUID ownerId, DiagramType diagramType, String title) {
         return findPage(ownerId, diagramType, title, PageRequest.of(0, 1)).getTotalElements();
     }
@@ -58,6 +66,13 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     public List<Diagram> findPublicDiagrams(int page, int size) {
         return repository.findByIsPublicTrue(PageRequest.of(page, size))
                 .map(mapper::toDomain)
+                .getContent();
+    }
+
+    @Override
+    public List<DiagramSummary> findPublicDiagramSummaries(int page, int size) {
+        return repository.findSummaryByIsPublicTrue(PageRequest.of(page, size))
+                .map(this::toSummaryDomain)
                 .getContent();
     }
 
@@ -87,5 +102,36 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
             return repository.findByOwnerIdAndTitleContainingIgnoreCase(ownerId, title, pageRequest);
         }
         return repository.findByOwnerId(ownerId, pageRequest);
+    }
+
+    private Page<DiagramSummaryRecord> findSummaryPage(
+            UUID ownerId, DiagramType diagramType, String title, PageRequest pageRequest) {
+        boolean hasDiagramType = diagramType != null;
+        boolean hasTitle = title != null && !title.isBlank();
+
+        if (hasDiagramType && hasTitle) {
+            return repository.findSummaryByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
+                    ownerId, diagramType.name(), title, pageRequest);
+        }
+        if (hasDiagramType) {
+            return repository.findSummaryByOwnerIdAndDiagramType(ownerId, diagramType.name(), pageRequest);
+        }
+        if (hasTitle) {
+            return repository.findSummaryByOwnerIdAndTitleContainingIgnoreCase(ownerId, title, pageRequest);
+        }
+        return repository.findSummaryByOwnerId(ownerId, pageRequest);
+    }
+
+    private DiagramSummary toSummaryDomain(DiagramSummaryRecord record) {
+        return new DiagramSummary(
+                record.id(),
+                record.title(),
+                DiagramType.from(record.diagramType()),
+                record.version(),
+                record.isPublic(),
+                record.ownerId(),
+                record.updatedBy(),
+                record.createdAt(),
+                record.updatedAt());
     }
 }

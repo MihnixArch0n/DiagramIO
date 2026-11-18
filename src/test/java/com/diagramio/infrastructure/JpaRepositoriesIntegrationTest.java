@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
+import com.diagramio.domain.diagram.DiagramSummary;
 import com.diagramio.domain.diagram.DiagramType;
 import com.diagramio.domain.exception.ConflictException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
@@ -149,6 +150,25 @@ class JpaRepositoriesIntegrationTest {
         assertThat(shareRepository.updateRole(share.getId(), newDiagram().getId(), ShareRole.EDIT)).isFalse();
         assertThat(shareRepository.findById(share.getId())).get()
                 .extracting(DiagramShare::getRole).isEqualTo(ShareRole.VIEW);
+    }
+
+    @Test
+    void findsSummariesByOwnerAndPublicWithoutLoadingData() {
+        Diagram diagram = newDiagram();
+
+        List<DiagramSummary> summaries = diagramRepository.findSummariesByOwner(SEED_USER, DiagramType.ERD, "Shop", 0, 10);
+        assertThat(summaries).isNotEmpty();
+        DiagramSummary summary = summaries.stream().filter(s -> s.id().equals(diagram.getId())).findFirst().orElseThrow();
+        assertThat(summary.title()).isEqualTo("Shop ERD");
+        assertThat(summary.diagramType()).isEqualTo(DiagramType.ERD);
+        assertThat(summary.ownerId()).isEqualTo(SEED_USER);
+
+        // Make it public and test findPublicDiagramSummaries
+        diagram.setPublic(true);
+        diagramRepository.save(diagram);
+
+        List<DiagramSummary> publicSummaries = diagramRepository.findPublicDiagramSummaries(0, 10);
+        assertThat(publicSummaries).extracting(DiagramSummary::id).contains(diagram.getId());
     }
 
     private DiagramShare newShare(UUID diagramId) {
