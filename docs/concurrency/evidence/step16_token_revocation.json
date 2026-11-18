@@ -1,0 +1,53 @@
+{
+  "test": "cache-share-token-revocation",
+  "passed": true,
+  "steps": [
+    {
+      "stage": "authentication",
+      "status": "PASS",
+      "http_status": 200
+    },
+    {
+      "stage": "diagram_created",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "stage": "share_created",
+      "status": "PASS",
+      "http_status": 201
+    },
+    {
+      "stage": "cache_warmup",
+      "status": "PASS",
+      "reads": 10,
+      "http_status": 200
+    },
+    {
+      "stage": "share_revoked",
+      "status": "PASS",
+      "http_status": 204
+    },
+    {
+      "stage": "revoked_token_cannot_read_shared_api",
+      "status": "PASS",
+      "reads": 20,
+      "response_codes": {
+        "404": 20
+      }
+    },
+    {
+      "stage": "revoked_token_cannot_read_by_id",
+      "status": "PASS",
+      "http_status": 401
+    },
+    {
+      "stage": "owner_access_unaffected",
+      "status": "PASS",
+      "http_status": 200
+    }
+  ],
+  "failures": [],
+  "diagram_id": "0e5024d3-0251-43ad-bbf4-e897ffb54531",
+  "test_diagram_cleanup_http": 204
+}
