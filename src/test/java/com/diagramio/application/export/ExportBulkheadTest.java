@@ -127,6 +127,70 @@ class ExportBulkheadTest {
         }
     }
 
+    @Test
+    void productionDefaultsUseFourWorkersAndTwentyQueueSlots() {
+        ExportJobService exports = new ExportJobService(mock(DiagramService.class));
+        try {
+            ExportBulkheadStats stats = exports.bulkheadStats();
+            assertEquals(4, stats.workerLimit());
+            assertEquals(20, stats.queueCapacity());
+            assertEquals(0, stats.activeWorkers());
+            assertEquals(0, stats.queuedJobs());
+        } finally {
+            exports.shutdown();
+        }
+    }
+
+    @Test
+    void fourWorkersRemainBoundedAndTwentyWaitingJobsRejectOverload() throws Exception {
+        DiagramService diagrams = mock(DiagramService.class);
+        UUID id = UUID.randomUUID();
+        UUID owner = UUID.randomUUID();
+        CountDownLatch allWorkersStarted = new CountDownLatch(4);
+        CountDownLatch releaseWorkers = new CountDownLatch(1);
+        when(diagrams.getDiagramById(eq(id), any(Caller.class))).thenAnswer(invocation -> {
+            if (Thread.currentThread().getName().startsWith("diagramio-export-")) {
+                allWorkersStarted.countDown();
+                if (!releaseWorkers.await(15, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Worker release timed out");
+                }
+            }
+            return diagram(id, owner, true);
+        });
+
+        ExportJobService exports = new ExportJobService(diagrams, 4, 20, 40);
+        try {
+            java.util.List<UUID> accepted = new java.util.ArrayList<>();
+            for (int n = 0; n < 4; n++) {
+                accepted.add(exports.submit(id, owner).jobId());
+            }
+            assertTrue(allWorkersStarted.await(5, TimeUnit.SECONDS),
+                    "Four export workers did not start");
+            for (int n = 0; n < 20; n++) {
+                accepted.add(exports.submit(id, owner).jobId());
+            }
+            ExportBulkheadStats busy = exports.bulkheadStats();
+            assertEquals(4, busy.workerLimit());
+            assertEquals(4, busy.activeWorkers());
+            assertEquals(20, busy.queueCapacity());
+            assertEquals(20, busy.queuedJobs());
+            assertEquals(24, busy.retainedJobs());
+            ResponseStatusException overloaded = assertThrows(ResponseStatusException.class,
+                    () -> exports.submit(id, owner));
+            assertEquals(HttpStatus.TOO_MANY_REQUESTS, overloaded.getStatusCode());
+            assertEquals(1, exports.bulkheadStats().rejectedJobs());
+            assertEquals(24, exports.bulkheadStats().retainedJobs());
+
+            releaseWorkers.countDown();
+            for (UUID jobId : accepted) {
+                assertEquals(ExportJobStatus.SUCCEEDED, awaitTerminal(exports, jobId, owner));
+            }
+        } finally {
+            releaseWorkers.countDown();
+            exports.shutdown();
+        }
+    }
+
     private static ExportJobStatus awaitTerminal(ExportJobService exports, UUID id, UUID owner)
             throws InterruptedException {
         long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();

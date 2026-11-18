@@ -33,7 +33,8 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Service
 public class ExportJobService {
-    private static final int WORKERS = 2;
+    // Phase 2 WBS: four dedicated workers, separate from HTTP request execution.
+    private static final int WORKERS = 4;
     private static final int QUEUE_CAPACITY = 20;
     private static final int MAX_RETAINED_JOBS = 40;
     private static final int MAX_EXPORT_BYTES = 3 * 1024 * 1024;
