@@ -7,12 +7,15 @@ import com.diagramio.infrastructure.security.JwtTokenProvider;
 import com.diagramio.infrastructure.security.ShareTokenAuthenticationFilter;
 import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -45,13 +48,18 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtTokenProvider jwtTokenProvider,
                                                    ShareService shareService,
-                                                   JsonMapper jsonMapper)
+                                                   JsonMapper jsonMapper,
+                                                   @Value("${DIAGRAMIO_MONITORING_TOKEN:}") String monitoringToken)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(e -> e.authenticationEntryPoint(jsonUnauthorizedEntryPoint(jsonMapper)))
                 .authorizeHttpRequests(auth -> auth
+                        // Monitoring requires a dedicated random secret, not an ordinary user JWT.
+                        .requestMatchers("/actuator/**").access((authentication, context) ->
+                                new AuthorizationDecision(monitoringKeyMatches(
+                                        monitoringToken, context.getRequest().getHeader("X-DiagramIO-Monitor-Key"))))
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/diagrams/*").permitAll()
                         .anyRequest().authenticated())
@@ -59,6 +67,14 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(new ShareTokenAuthenticationFilter(shareService), JwtAuthenticationFilter.class);
         return http.build();
+    }
+
+    /** Deny by default when no monitoring secret is configured. Never log either secret. */
+    static boolean monitoringKeyMatches(String configured, String supplied) {
+        return configured != null && !configured.isBlank()
+                && supplied != null
+                && MessageDigest.isEqual(configured.getBytes(StandardCharsets.UTF_8),
+                        supplied.getBytes(StandardCharsets.UTF_8));
     }
 
     /** Trả 401 cùng khung JSON với GlobalExceptionHandler. */

@@ -31,6 +31,8 @@ dependencies {
     developmentOnly(libs.spring.boot.docker.compose)
 
     implementation(libs.caffeine)
+    implementation(libs.spring.boot.starter.actuator)
+    runtimeOnly(libs.micrometer.registry.prometheus)
     implementation(libs.jjwt.api)
     runtimeOnly(libs.jjwt.impl)
     runtimeOnly(libs.jjwt.jackson)

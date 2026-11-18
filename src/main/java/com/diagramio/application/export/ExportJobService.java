@@ -3,6 +3,12 @@ package com.diagramio.application.export;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.FunctionCounter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -41,14 +47,27 @@ public class ExportJobService {
     private final int queueCapacity;
     private final int maxRetainedJobs;
     private final AtomicLong rejectedJobs = new AtomicLong();
+    private final Counter succeededCounter;
+    private final Counter failedCounter;
+    private final Timer durationTimer;
+
+    // Preserve the one-argument constructor used by existing non-Spring unit tests.
+    public ExportJobService(DiagramService diagramService) {
+        this(diagramService, WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS, new SimpleMeterRegistry());
+    }
 
     @Autowired
-    public ExportJobService(DiagramService diagramService) {
-        this(diagramService, WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS);
+    public ExportJobService(DiagramService diagramService, MeterRegistry meterRegistry) {
+        this(diagramService, WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS, meterRegistry);
     }
 
     // Package-private: allow small, deterministic bulkhead limits in unit tests.
     ExportJobService(DiagramService diagramService, int workers, int queueCapacity, int maxRetainedJobs) {
+        this(diagramService, workers, queueCapacity, maxRetainedJobs, new SimpleMeterRegistry());
+    }
+
+    ExportJobService(DiagramService diagramService, int workers, int queueCapacity,
+                     int maxRetainedJobs, MeterRegistry meterRegistry) {
         if (workers < 1 || queueCapacity < 1 || maxRetainedJobs < workers + queueCapacity) {
             throw new IllegalArgumentException("Invalid export bulkhead limits");
         }
@@ -69,6 +88,28 @@ public class ExportJobService {
                 },
                 new ThreadPoolExecutor.AbortPolicy()
         );
+        java.util.Objects.requireNonNull(meterRegistry, "meterRegistry must not be null");
+        this.succeededCounter = Counter.builder("diagramio.export.jobs.succeeded")
+                .description("Completed JSON exports that succeeded").register(meterRegistry);
+        this.failedCounter = Counter.builder("diagramio.export.jobs.failed")
+                .description("Completed JSON exports that failed").register(meterRegistry);
+        this.durationTimer = Timer.builder("diagramio.export.duration")
+                .description("Background JSON export processing duration")
+                .publishPercentileHistogram().register(meterRegistry);
+
+        Gauge.builder("diagramio.export.workers.limit", executor, ThreadPoolExecutor::getMaximumPoolSize)
+                .register(meterRegistry);
+        Gauge.builder("diagramio.export.workers.active", executor, ThreadPoolExecutor::getActiveCount)
+                .register(meterRegistry);
+        Gauge.builder("diagramio.export.queue.depth", executor, e -> e.getQueue().size())
+                .register(meterRegistry);
+        Gauge.builder("diagramio.export.queue.capacity", this, e -> e.queueCapacity)
+                .register(meterRegistry);
+        Gauge.builder("diagramio.export.jobs.retained", jobs, m -> m.size())
+                .register(meterRegistry);
+        FunctionCounter.builder("diagramio.export.jobs.rejected", rejectedJobs, AtomicLong::get)
+                .description("Export submissions rejected by admission limits")
+                .register(meterRegistry);
     }
 
     public ExportJobView submit(UUID diagramId, UUID ownerId) {
@@ -137,7 +178,9 @@ public class ExportJobService {
     }
 
     private void execute(Job job) {
+        long started = System.nanoTime();
         job.status = ExportJobStatus.RUNNING;
+        boolean succeeded = false;
         try {
             Diagram diagram = diagramService.getDiagramById(job.diagramId, Caller.user(job.ownerId));
             if (!diagram.isOwner(job.ownerId)) {
@@ -156,13 +199,20 @@ public class ExportJobService {
                 throw new IllegalStateException("Export exceeds output limit");
             }
             job.output = output;
-            job.completedAt = Instant.now();
-            job.status = ExportJobStatus.SUCCEEDED;
+            succeeded = true;
         } catch (Exception e) {
             // Never expose exception details or source JSON to API consumers.
             job.errorCode = "EXPORT_FAILED";
+        } finally {
             job.completedAt = Instant.now();
-            job.status = ExportJobStatus.FAILED;
+            durationTimer.record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
+            if (succeeded) {
+                succeededCounter.increment();
+                job.status = ExportJobStatus.SUCCEEDED;
+            } else {
+                failedCounter.increment();
+                job.status = ExportJobStatus.FAILED;
+            }
         }
     }
 

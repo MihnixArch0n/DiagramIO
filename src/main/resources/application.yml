@@ -35,3 +35,11 @@ jwt:
   access-token-minutes: 15
   refresh-token-days: 7
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
