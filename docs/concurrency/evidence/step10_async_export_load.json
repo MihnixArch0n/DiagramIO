@@ -1,0 +1,30 @@
+{
+  "test": "step10_async_export_http_load",
+  "host": "http://127.0.0.1:8081",
+  "requestsAttempted": 65,
+  "clientWorkers": 20,
+  "result": "PASS",
+  "notes": [
+    "HTTP 429 may be due to executor saturation or the 40 retained-job limit.",
+    "Active workers/queue limit are verified by the Step 9 JUnit test, not this HTTP test.",
+    "Retained export jobs remain in application memory for up to 10 minutes."
+  ],
+  "diagramId": "fb14f9a3-39ea-4ed0-ba7d-df4fd6815fac",
+  "submitSeconds": 0.174,
+  "submissionHttpCounts": {
+    "202": 40,
+    "429": 25
+  },
+  "concurrentReadHttpCounts": {
+    "200": 16
+  },
+  "concurrentReadNetworkErrors": 0,
+  "acceptedJobs": 40,
+  "completedStatusCounts": {
+    "SUCCEEDED": 40
+  },
+  "pendingAfterTimeout": 0,
+  "verifiedDownloads": 5,
+  "healthHttp": 200,
+  "cleanupHttp": 204
+}

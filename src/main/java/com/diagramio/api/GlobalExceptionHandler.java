@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.server.ResponseStatusException;
 
 /** Đổi ngoại lệ nghiệp vụ (và lỗi validate) thành mã HTTP + JSON lỗi thống nhất. */
 @RestControllerAdvice
@@ -71,6 +72,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status)
                 .headers(springError.getHeaders())
                 .body(body(status, springError.getBody().getDetail(), request));
+    }
+
+    /** Keep explicit HTTP statuses (including 429 overload) instead of mapping them to 500. */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex,
+                                                              HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        String message = ex.getReason() != null ? ex.getReason() : status.getReasonPhrase();
+        return ResponseEntity.status(status)
+                .headers(ex.getHeaders())
+                .body(body(status, message, request));
     }
 
     /** Ràng buộc CSDL (UNIQUE, FK...) bị vi phạm do hai request tranh nhau: 409, không lộ câu SQL. */
