@@ -5,12 +5,15 @@ import com.diagramio.domain.diagram.DiagramReadCache;
 import com.diagramio.domain.diagram.DiagramReadSnapshot;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 import com.github.benmanes.caffeine.cache.Weigher;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -23,6 +26,8 @@ import org.springframework.stereotype.Component;
 public class CaffeineDiagramReadCache
         implements DiagramReadCache {
 
+    private static final Logger LOG = LoggerFactory.getLogger(CaffeineDiagramReadCache.class);
+
     private static final long MAX_WEIGHT =
             64L * 1024 * 1024;
 
@@ -32,6 +37,20 @@ public class CaffeineDiagramReadCache
     private final Cache<DiagramCacheKey, DiagramReadSnapshot> cache;
 
     public CaffeineDiagramReadCache() {
+        this(TTL, MAX_WEIGHT, Ticker.systemTicker());
+    }
+
+    // Package-private to allow deterministic policy tests without changing production defaults.
+    CaffeineDiagramReadCache(Duration ttl, long maxWeight, Ticker ticker) {
+        Objects.requireNonNull(ttl, "ttl must not be null");
+        Objects.requireNonNull(ticker, "ticker must not be null");
+        if (ttl.isNegative() || ttl.isZero()) {
+            throw new IllegalArgumentException("ttl must be positive");
+        }
+        if (maxWeight <= 0) {
+            throw new IllegalArgumentException("maxWeight must be positive");
+        }
+
         Weigher<DiagramCacheKey, DiagramReadSnapshot> weigher =
                 (key, snapshot) -> {
                     int bytes = snapshot.data()
@@ -43,9 +62,10 @@ public class CaffeineDiagramReadCache
                 };
 
         this.cache = Caffeine.newBuilder()
-                .maximumWeight(MAX_WEIGHT)
+                .maximumWeight(maxWeight)
                 .weigher(weigher)
-                .expireAfterWrite(TTL)
+                .expireAfterWrite(ttl)
+                .ticker(ticker)
                 .recordStats()
                 .build();
     }
@@ -60,7 +80,23 @@ public class CaffeineDiagramReadCache
         Objects.requireNonNull(
                 loader, "loader must not be null");
 
-        return cache.get(key, loader);
+        DiagramReadSnapshot result = cache.get(key, loader);
+
+        if (LOG.isDebugEnabled()) {
+            var stats = cache.stats();
+
+            LOG.debug(
+                    "DIAGRAM_CACHE_STATS hits={} misses={} "
+                    + "loads={} evictions={} entries={}",
+                    stats.hitCount(),
+                    stats.missCount(),
+                    stats.loadSuccessCount(),
+                    stats.evictionCount(),
+                    cache.estimatedSize()
+            );
+        }
+
+        return result;
     }
 
     @Override
@@ -85,5 +121,10 @@ public class CaffeineDiagramReadCache
 
     public long evictionCount() {
         return cache.stats().evictionCount();
+    }
+
+    // Package-private: trigger pending expiry/eviction maintenance in tests.
+    void cleanUp() {
+        cache.cleanUp();
     }
 }
