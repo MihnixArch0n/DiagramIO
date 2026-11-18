@@ -14,6 +14,8 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Single-instance MVP. Jobs/results are intentionally lost on application restart.
- * Step 9 will extend the executor/bulkhead configuration and monitoring.
+ * A bounded executor isolates export work from HTTP request threads.
  */
 @Service
 public class ExportJobService {
@@ -36,16 +38,30 @@ public class ExportJobService {
     private final ConcurrentHashMap<UUID, Job> jobs = new ConcurrentHashMap<>();
     private final Object admissionLock = new Object();
     private final ThreadPoolExecutor executor;
+    private final int queueCapacity;
+    private final int maxRetainedJobs;
+    private final AtomicLong rejectedJobs = new AtomicLong();
 
+    @Autowired
     public ExportJobService(DiagramService diagramService) {
-        this.diagramService = diagramService;
+        this(diagramService, WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS);
+    }
+
+    // Package-private: allow small, deterministic bulkhead limits in unit tests.
+    ExportJobService(DiagramService diagramService, int workers, int queueCapacity, int maxRetainedJobs) {
+        if (workers < 1 || queueCapacity < 1 || maxRetainedJobs < workers + queueCapacity) {
+            throw new IllegalArgumentException("Invalid export bulkhead limits");
+        }
+        this.diagramService = java.util.Objects.requireNonNull(diagramService);
+        this.queueCapacity = queueCapacity;
+        this.maxRetainedJobs = maxRetainedJobs;
         AtomicInteger nextThread = new AtomicInteger();
         this.executor = new ThreadPoolExecutor(
-                WORKERS,
-                WORKERS,
+                workers,
+                workers,
                 0L,
                 TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(QUEUE_CAPACITY),
+                new ArrayBlockingQueue<>(queueCapacity),
                 task -> {
                     Thread worker = new Thread(task, "diagramio-export-" + nextThread.incrementAndGet());
                     worker.setDaemon(true);
@@ -61,7 +77,8 @@ public class ExportJobService {
         Job job = new Job(UUID.randomUUID(), diagramId, ownerId);
         synchronized (admissionLock) {
             cleanupExpired();
-            if (jobs.size() >= MAX_RETAINED_JOBS) {
+            if (jobs.size() >= maxRetainedJobs) {
+                rejectedJobs.incrementAndGet();
                 throw overloaded();
             }
             jobs.put(job.id, job);
@@ -69,10 +86,19 @@ public class ExportJobService {
                 executor.execute(() -> execute(job));
             } catch (RejectedExecutionException e) {
                 jobs.remove(job.id, job);
+                rejectedJobs.incrementAndGet();
                 throw overloaded();
             }
         }
         return job.view();
+    }
+
+    /** Thread-safe, process-local bulkhead snapshot for tests and future telemetry. */
+    public ExportBulkheadStats bulkheadStats() {
+        return new ExportBulkheadStats(
+                executor.getMaximumPoolSize(), executor.getActiveCount(),
+                executor.getQueue().size(), queueCapacity, rejectedJobs.get(),
+                executor.getCompletedTaskCount(), jobs.size());
     }
 
     public ExportJobView status(UUID jobId, UUID requesterId) {
