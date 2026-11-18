@@ -35,3 +35,7 @@ jwt:
   access-token-minutes: 15
   refresh-token-days: 7
 
+diagramio:
+  storage:
+    blob-dir: ${DIAGRAMIO_STORAGE_PATH:data/blobs}
+

@@ -1,5 +1,7 @@
 package com.diagramio.infrastructure.version;
 
+import com.diagramio.domain.diagram.BlobStoragePort;
+import com.diagramio.domain.diagram.DiagramData;
 import com.diagramio.domain.exception.ConflictException;
 import com.diagramio.domain.version.DiagramVersion;
 import com.diagramio.domain.version.DiagramVersionRepository;
@@ -16,10 +18,15 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
 
     private final DiagramVersionJpaRepository jpaRepository;
     private final EntityManager entityManager;
+    private final BlobStoragePort blobStorage;
 
-    public DiagramVersionRepositoryAdapter(DiagramVersionJpaRepository jpaRepository, EntityManager entityManager) {
+    public DiagramVersionRepositoryAdapter(
+            DiagramVersionJpaRepository jpaRepository,
+            EntityManager entityManager,
+            BlobStoragePort blobStorage) {
         this.jpaRepository = jpaRepository;
         this.entityManager = entityManager;
+        this.blobStorage = blobStorage;
     }
 
     @Override
@@ -29,31 +36,36 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
 
     @Override
     public DiagramVersion save(DiagramVersion version) {
-        // persist (không phải merge): snapshot chỉ được thêm mới, không bao giờ ghi đè
-        DiagramVersionEntity entity = DiagramVersionEntity.fromDomain(version);
+        // persist (not merge): snapshots are append-only, never overwritten
+        // Use Claim-Check pattern: offload snapshot payload to BlobStoragePort
+        String storageKey = "diagrams/" + version.diagramId() + "/versions/" + version.id() + ".json";
+        String dataJson = (version.data() != null) ? version.data().json() : DiagramData.EMPTY.json();
+        blobStorage.store(storageKey, dataJson);
+
+        DiagramVersionEntity entity = DiagramVersionEntity.fromDomain(version, storageKey);
         try {
             entityManager.persist(entity);
             entityManager.flush();
         } catch (PersistenceException ex) {
-            // Lưới an toàn: bình thường lockDiagram đã xếp hàng các yêu cầu nên không trùng số thứ tự
+            // Safety net: normally lockDiagram serializes requests to avoid conflicting version numbers
             if (ex instanceof ConstraintViolationException || ex.getCause() instanceof ConstraintViolationException) {
                 throw new ConflictException("Another version was saved at the same time, please retry");
             }
             throw ex;
         }
-        return entity.toDomain();
+        return entity.toDomain(blobStorage);
     }
 
     @Override
     public List<DiagramVersion> findByDiagramId(UUID diagramId) {
         return jpaRepository.findByDiagramIdOrderByVersionNumberDesc(diagramId).stream()
-                .map(DiagramVersionEntity::toDomain)
+                .map(e -> e.toDomain(blobStorage))
                 .toList();
     }
 
     @Override
     public Optional<DiagramVersion> findByIdAndDiagramId(UUID id, UUID diagramId) {
-        return jpaRepository.findByIdAndDiagramId(id, diagramId).map(DiagramVersionEntity::toDomain);
+        return jpaRepository.findByIdAndDiagramId(id, diagramId).map(e -> e.toDomain(blobStorage));
     }
 
     @Override

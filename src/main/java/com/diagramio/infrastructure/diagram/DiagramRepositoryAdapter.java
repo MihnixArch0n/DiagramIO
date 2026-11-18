@@ -1,6 +1,8 @@
 package com.diagramio.infrastructure.diagram;
 
+import com.diagramio.domain.diagram.BlobStoragePort;
 import com.diagramio.domain.diagram.Diagram;
+import com.diagramio.domain.diagram.DiagramData;
 import com.diagramio.domain.diagram.DiagramRepository;
 import com.diagramio.domain.diagram.DiagramSummary;
 import com.diagramio.domain.diagram.DiagramType;
@@ -18,20 +20,49 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
 
     private final DiagramJpaRepository repository;
     private final DiagramMapper mapper;
+    private final BlobStoragePort blobStorage;
 
-    public DiagramRepositoryAdapter(DiagramJpaRepository repository, DiagramMapper mapper) {
+    public DiagramRepositoryAdapter(
+            DiagramJpaRepository repository,
+            DiagramMapper mapper,
+            BlobStoragePort blobStorage) {
         this.repository = repository;
         this.mapper = mapper;
+        this.blobStorage = blobStorage;
     }
 
     /**
-     * Ghi ngay (saveAndFlush) để @Version kiểm tra và tăng version trong cùng lời gọi:
-     * nếu người khác vừa ghi trước thì trả về 409 thay vì lỗi lúc commit.
+     * Immediately writes (saveAndFlush) so @Version checks and increments version in the same call:
+     * returns 409 if another writer updated first, rather than failing at commit time.
+     * Uses Claim-Check pattern: offloads JSON payload data to BlobStoragePort
+     * and only stores storage_key in PostgreSQL table.
      */
     @Override
     public Diagram save(Diagram diagram) {
+        String dataJson = diagram.getData() != null ? diagram.getData().json() : DiagramData.EMPTY.json();
+        UUID id = diagram.getId();
+
+        if (id == null) {
+            // New diagram: persist initial record to generate UUID and initialize version = 1
+            DiagramEntity entity = mapper.toEntity(diagram, null);
+            DiagramEntity saved = repository.saveAndFlush(entity);
+            id = saved.getId();
+            String storageKey = "diagrams/" + id + "/" + UUID.randomUUID() + ".json";
+            blobStorage.store(storageKey, dataJson);
+            repository.updateStorageKey(id, storageKey);
+            saved.setStorageKey(storageKey);
+            saved.setData(null);
+            return mapper.toDomain(saved, dataJson);
+        }
+
+        // Existing diagram update: write payload to a new snapshot file (prevents overwriting old file on optimistic lock conflict)
+        String storageKey = "diagrams/" + id + "/" + UUID.randomUUID() + ".json";
+        blobStorage.store(storageKey, dataJson);
+
+        DiagramEntity entity = mapper.toEntity(diagram, storageKey);
         try {
-            return mapper.toDomain(repository.saveAndFlush(mapper.toEntity(diagram)));
+            DiagramEntity saved = repository.saveAndFlush(entity);
+            return mapper.toDomain(saved, dataJson);
         } catch (OptimisticLockingFailureException _) {
             Integer currentVersion = repository.findById(diagram.getId()).map(DiagramEntity::getVersion).orElse(null);
             throw new OptimisticLockConflictException(diagram.getId(), diagram.getVersion(), currentVersion);
@@ -40,13 +71,13 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
 
     @Override
     public Optional<Diagram> findById(UUID id) {
-        return repository.findById(id).map(mapper::toDomain);
+        return repository.findById(id).map(e -> mapper.toDomain(e, blobStorage));
     }
 
     @Override
     public List<Diagram> findByOwnerId(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
         return findPage(ownerId, diagramType, title, PageRequest.of(page, size))
-                .map(mapper::toDomain)
+                .map(e -> mapper.toDomain(e, blobStorage))
                 .getContent();
     }
 
@@ -65,7 +96,7 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     @Override
     public List<Diagram> findPublicDiagrams(int page, int size) {
         return repository.findByIsPublicTrue(PageRequest.of(page, size))
-                .map(mapper::toDomain)
+                .map(e -> mapper.toDomain(e, blobStorage))
                 .getContent();
     }
 
@@ -84,6 +115,7 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     @Override
     public void deleteById(UUID id) {
         repository.deleteById(id);
+        blobStorage.deleteAllPrefix("diagrams/" + id);
     }
 
     private Page<DiagramEntity> findPage(

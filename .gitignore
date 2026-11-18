@@ -1,5 +1,6 @@
 # 1. Dữ liệu Docker & Database (Tuyệt đối không commit lên Git)
 postgres_data/
+data/
 *.sqlite
 *.db
 

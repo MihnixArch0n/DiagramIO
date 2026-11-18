@@ -3,7 +3,9 @@ package com.diagramio.infrastructure;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.diagramio.config.StorageConfig;
 import com.diagramio.domain.access.ShareRole;
+import com.diagramio.domain.diagram.BlobStoragePort;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
 import com.diagramio.domain.diagram.DiagramSummary;
@@ -12,6 +14,7 @@ import com.diagramio.domain.exception.ConflictException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import com.diagramio.domain.share.DiagramShare;
 import com.diagramio.domain.version.DiagramVersion;
+import com.diagramio.infrastructure.diagram.DiagramJpaRepository;
 import com.diagramio.infrastructure.diagram.DiagramMapper;
 import com.diagramio.infrastructure.diagram.DiagramRepositoryAdapter;
 import com.diagramio.infrastructure.share.DiagramShareMapper;
@@ -31,18 +34,18 @@ import org.springframework.context.annotation.Import;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
- * Chạy Flyway + Hibernate (ddl-auto: validate) trên PostgreSQL thật.
+ * Runs Flyway + Hibernate (ddl-auto: validate) on real PostgreSQL.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({DiagramRepositoryAdapter.class, DiagramMapper.class, DiagramVersionRepositoryAdapter.class,
-        DiagramShareRepositoryAdapter.class, DiagramShareMapper.class})
+        DiagramShareRepositoryAdapter.class, DiagramShareMapper.class, StorageConfig.class})
 class JpaRepositoriesIntegrationTest {
 
     @ServiceConnection
     static final PostgreSQLContainer postgres = E2eTestBase.postgres;
 
-    /** Người dùng mẫu được seed trong V2. */
+    /** Sample user seeded in V2. */
     private static final UUID SEED_USER = UUID.fromString("11111111-1111-1111-1111-111111111111");
     private static final DiagramData DATA = DiagramData.fromStorage("{\"nodes\": [{\"id\": \"n1\"}], \"edges\": []}");
 
@@ -54,6 +57,46 @@ class JpaRepositoriesIntegrationTest {
 
     @Autowired
     private DiagramShareRepositoryAdapter shareRepository;
+
+    @Autowired
+    private DiagramJpaRepository diagramJpaRepository;
+
+    @Autowired
+    private BlobStoragePort blobStorage;
+
+    @Test
+    void claimCheckStoresBlobAndClearsDataInDatabase() {
+        Diagram diagram = newDiagram();
+
+        // 1. Direct inspection of diagrams table in PostgreSQL via JPA Entity:
+        // data column must be null (to eliminate TOAST), storage_key must be present
+        var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        assertThat(entity.getStorageKey()).isNotNull().startsWith("diagrams/" + diagram.getId());
+        assertThat(entity.getData()).isNull();
+
+        // 2. Verify external blob storage holds the expected JSON payload
+        var blobContent = blobStorage.load(entity.getStorageKey());
+        assertThat(blobContent).isPresent();
+        assertThat(blobContent.get()).contains("\"n1\"");
+
+        // 3. Verify repository adapter transparently reads and reconstructs complete domain model
+        Diagram loaded = diagramRepository.findById(diagram.getId()).orElseThrow();
+        assertThat(loaded.getData()).isNotNull();
+        assertThat(loaded.getData().json()).contains("\"n1\"");
+    }
+
+    @Test
+    void claimCheckPurgesBlobsWhenDiagramIsDeleted() {
+        Diagram diagram = newDiagram();
+        var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        String storageKey = entity.getStorageKey();
+        assertThat(blobStorage.load(storageKey)).isPresent();
+
+        diagramRepository.deleteById(diagram.getId());
+
+        assertThat(diagramRepository.findById(diagram.getId())).isEmpty();
+        assertThat(blobStorage.load(storageKey)).isEmpty();
+    }
 
     @Test
     void savesAndReadsSnapshotsNewestFirst() {
@@ -167,7 +210,7 @@ class JpaRepositoriesIntegrationTest {
         diagram.setPublic(true);
         diagramRepository.save(diagram);
 
-        List<DiagramSummary> publicSummaries = diagramRepository.findPublicDiagramSummaries(0, 10);
+        List<DiagramSummary> publicSummaries = diagramRepository.findPublicDiagramSummaries(0, 100);
         assertThat(publicSummaries).extracting(DiagramSummary::id).contains(diagram.getId());
     }
 
