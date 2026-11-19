@@ -5,6 +5,7 @@ import com.diagramio.domain.diagram.DiagramData;
 import com.diagramio.domain.exception.ConflictException;
 import com.diagramio.domain.version.DiagramVersion;
 import com.diagramio.domain.version.DiagramVersionRepository;
+import com.diagramio.domain.version.DiagramVersionSummary;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 import java.util.List;
@@ -46,13 +47,16 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
         try {
             entityManager.persist(entity);
             entityManager.flush();
-        } catch (PersistenceException ex) {
+        } catch (Throwable ex) {
             blobStorage.delete(storageKey);
             // Safety net: normally lockDiagram serializes requests to avoid conflicting version numbers
             if (ex instanceof ConstraintViolationException || ex.getCause() instanceof ConstraintViolationException) {
                 throw new ConflictException("Another version was saved at the same time, please retry");
             }
-            throw ex;
+            if (ex instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new RuntimeException(ex);
         }
         return entity.toDomain(blobStorage);
     }
@@ -61,6 +65,19 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
     public List<DiagramVersion> findByDiagramId(UUID diagramId) {
         return jpaRepository.findByDiagramIdOrderByVersionNumberDesc(diagramId).stream()
                 .map(e -> e.toDomain(blobStorage))
+                .toList();
+    }
+
+    @Override
+    public List<DiagramVersionSummary> findSummariesByDiagramId(UUID diagramId) {
+        return jpaRepository.findSummaryByDiagramIdOrderByVersionNumberDesc(diagramId).stream()
+                .map(r -> new DiagramVersionSummary(
+                        r.id(),
+                        r.diagramId(),
+                        r.versionNumber(),
+                        r.note(),
+                        r.createdBy(),
+                        r.createdAt()))
                 .toList();
     }
 

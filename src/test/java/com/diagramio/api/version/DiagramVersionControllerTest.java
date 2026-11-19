@@ -27,6 +27,7 @@ import com.diagramio.domain.exception.NotFoundException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import com.diagramio.domain.version.DiagramVersion;
 import com.diagramio.domain.version.DiagramVersionService;
+import com.diagramio.domain.version.DiagramVersionSummary;
 import com.diagramio.domain.version.RestoreResult;
 import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
@@ -162,7 +163,7 @@ class DiagramVersionControllerTest {
     @Test
     void listReturnsSummariesWithoutData() throws Exception {
         when(versionService.listVersions(diagramId, Caller.user(ownerId)))
-                .thenReturn(List.of(version(UUID.randomUUID(), 2), version(versionId, 1)));
+                .thenReturn(List.of(versionSummary(UUID.randomUUID(), 2), versionSummary(versionId, 1)));
 
         mockMvc.perform(get(base).with(user(ownerId.toString())))
                 .andExpect(status().isOk())
@@ -234,5 +235,9 @@ class DiagramVersionControllerTest {
 
     private DiagramVersion version(UUID id, int number) {
         return new DiagramVersion(id, diagramId, number, DATA, "note " + number, ownerId, NOW);
+    }
+
+    private DiagramVersionSummary versionSummary(UUID id, int number) {
+        return new DiagramVersionSummary(id, diagramId, number, "note " + number, ownerId, NOW);
     }
 }

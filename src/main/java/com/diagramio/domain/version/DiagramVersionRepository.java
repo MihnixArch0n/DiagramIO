@@ -19,6 +19,9 @@ public interface DiagramVersionRepository {
     /** Các snapshot của sơ đồ, mới nhất trước. */
     List<DiagramVersion> findByDiagramId(UUID diagramId);
 
+    /** Danh sách metadata tóm tắt các snapshot của sơ đồ (không nạp payload JSON), mới nhất trước. */
+    List<DiagramVersionSummary> findSummariesByDiagramId(UUID diagramId);
+
     Optional<DiagramVersion> findByIdAndDiagramId(UUID id, UUID diagramId);
 
     /** Số thứ tự snapshot lớn nhất của sơ đồ, 0 nếu chưa có. */
