@@ -19,7 +19,9 @@ public class DiagramMapper {
         }
         String dataJson = null;
         if (entity.getStorageKey() != null && blobStorage != null) {
-            dataJson = blobStorage.load(entity.getStorageKey()).orElse(null);
+            dataJson = blobStorage.load(entity.getStorageKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Payload blob missing for diagram " + entity.getId() + " at storage key: " + entity.getStorageKey()));
         }
         if (dataJson == null) {
             dataJson = entity.getData();

@@ -1,5 +1,6 @@
 package com.diagramio.infrastructure.diagram;
 
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,19 +26,19 @@ public interface DiagramJpaRepository extends JpaRepository<DiagramEntity, UUID>
 
     Page<DiagramEntity> findByIsPublicTrue(Pageable pageable);
 
-    Page<DiagramSummaryRecord> findSummaryByOwnerId(UUID ownerId, Pageable pageable);
+    List<DiagramSummaryRecord> findSummaryByOwnerId(UUID ownerId, Pageable pageable);
 
-    Page<DiagramSummaryRecord> findSummaryByOwnerIdAndDiagramType(
+    List<DiagramSummaryRecord> findSummaryByOwnerIdAndDiagramType(
             UUID ownerId, String diagramType, Pageable pageable);
 
-    Page<DiagramSummaryRecord> findSummaryByOwnerIdAndTitleContainingIgnoreCase(
+    List<DiagramSummaryRecord> findSummaryByOwnerIdAndTitleContainingIgnoreCase(
             UUID ownerId, String title, Pageable pageable);
 
-    Page<DiagramSummaryRecord> findSummaryByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
+    List<DiagramSummaryRecord> findSummaryByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
             UUID ownerId, String diagramType, String title,
             Pageable pageable);
 
-    Page<DiagramSummaryRecord> findSummaryByIsPublicTrue(Pageable pageable);
+    List<DiagramSummaryRecord> findSummaryByIsPublicTrue(Pageable pageable);
 
     long countByOwnerId(UUID ownerId);
 

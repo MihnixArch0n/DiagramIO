@@ -50,11 +50,20 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
             DiagramEntity saved = repository.saveAndFlush(entity);
             id = saved.getId();
             String storageKey = "diagrams/" + id + "/" + UUID.randomUUID() + ".json";
-            blobStorage.store(storageKey, dataJson);
-            repository.updateStorageKey(id, storageKey);
-            saved.setStorageKey(storageKey);
-            saved.setData(null);
-            return mapper.toDomain(saved, dataJson);
+            try {
+                blobStorage.store(storageKey, dataJson);
+                repository.updateStorageKey(id, storageKey);
+                saved.setStorageKey(storageKey);
+                saved.setData(null);
+                return mapper.toDomain(saved, dataJson);
+            } catch (Throwable ex) {
+                blobStorage.delete(storageKey);
+                repository.deleteById(id);
+                if (ex instanceof RuntimeException re) {
+                    throw re;
+                }
+                throw new RuntimeException(ex);
+            }
         }
 
         // Existing diagram update: write payload to a new snapshot file
@@ -73,6 +82,12 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
             blobStorage.delete(storageKey);
             Integer currentVersion = repository.findById(diagram.getId()).map(DiagramEntity::getVersion).orElse(null);
             throw new OptimisticLockConflictException(diagram.getId(), diagram.getVersion(), currentVersion);
+        } catch (Throwable ex) {
+            blobStorage.delete(storageKey);
+            if (ex instanceof RuntimeException re) {
+                throw re;
+            }
+            throw new RuntimeException(ex);
         }
     }
 
@@ -92,9 +107,9 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
 
     @Override
     public List<DiagramSummary> findSummariesByOwner(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
-        return findSummaryPage(ownerId, diagramType, title, PageRequest.of(page, size, DEFAULT_SORT))
+        return findSummaryRecords(ownerId, diagramType, title, PageRequest.of(page, size, DEFAULT_SORT)).stream()
                 .map(this::toSummaryDomain)
-                .getContent();
+                .toList();
     }
 
     @Override
@@ -124,9 +139,9 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
 
     @Override
     public List<DiagramSummary> findPublicDiagramSummaries(int page, int size) {
-        return repository.findSummaryByIsPublicTrue(PageRequest.of(page, size, DEFAULT_SORT))
+        return repository.findSummaryByIsPublicTrue(PageRequest.of(page, size, DEFAULT_SORT)).stream()
                 .map(this::toSummaryDomain)
-                .getContent();
+                .toList();
     }
 
     @Override
@@ -158,7 +173,7 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
         return repository.findByOwnerId(ownerId, pageRequest);
     }
 
-    private Page<DiagramSummaryRecord> findSummaryPage(
+    private List<DiagramSummaryRecord> findSummaryRecords(
             UUID ownerId, DiagramType diagramType, String title, PageRequest pageRequest) {
         boolean hasDiagramType = diagramType != null;
         boolean hasTitle = title != null && !title.isBlank();

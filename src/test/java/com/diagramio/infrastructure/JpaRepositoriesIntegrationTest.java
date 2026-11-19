@@ -14,6 +14,7 @@ import com.diagramio.domain.exception.ConflictException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import com.diagramio.domain.share.DiagramShare;
 import com.diagramio.domain.version.DiagramVersion;
+import com.diagramio.domain.version.DiagramVersionSummary;
 import com.diagramio.infrastructure.diagram.DiagramJpaRepository;
 import com.diagramio.infrastructure.diagram.DiagramMapper;
 import com.diagramio.infrastructure.diagram.DiagramRepositoryAdapter;
@@ -226,6 +227,33 @@ class JpaRepositoriesIntegrationTest {
         assertThat(shareRepository.updateRole(share.getId(), newDiagram().getId(), ShareRole.EDIT)).isFalse();
         assertThat(shareRepository.findById(share.getId())).get()
                 .extracting(DiagramShare::getRole).isEqualTo(ShareRole.VIEW);
+    }
+
+    @Test
+    void findsVersionSummariesWithoutLoadingDataPayload() {
+        Diagram diagram = newDiagram();
+        versionRepository.save(snapshot(diagram.getId(), 1));
+        versionRepository.save(snapshot(diagram.getId(), 2));
+
+        List<DiagramVersionSummary> summaries = versionRepository.findSummariesByDiagramId(diagram.getId());
+
+        assertThat(summaries).extracting(DiagramVersionSummary::versionNumber).containsExactly(2, 1);
+        assertThat(summaries).allSatisfy(s -> {
+            assertThat(s.diagramId()).isEqualTo(diagram.getId());
+            assertThat(s.createdBy()).isEqualTo(SEED_USER);
+        });
+    }
+
+    @Test
+    void throwsIllegalStateExceptionWhenBlobIsMissing() {
+        Diagram diagram = newDiagram();
+        var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        // Xóa file blob ngoài đĩa để mô phỏng rủi ro mất file
+        blobStorage.delete(entity.getStorageKey());
+
+        assertThatThrownBy(() -> diagramRepository.findById(diagram.getId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Payload blob missing");
     }
 
     @Test

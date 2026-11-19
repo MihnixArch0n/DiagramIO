@@ -88,7 +88,9 @@ public class DiagramVersionEntity {
     DiagramVersion toDomain(BlobStoragePort blobStorage) {
         String dataJson = null;
         if (storageKey != null && blobStorage != null) {
-            dataJson = blobStorage.load(storageKey).orElse(null);
+            dataJson = blobStorage.load(storageKey)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Payload blob missing for version snapshot " + id + " at storage key: " + storageKey));
         }
         if (dataJson == null) {
             dataJson = data;
