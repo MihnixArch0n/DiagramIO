@@ -45,10 +45,14 @@ public class FileSystemBlobStorageAdapter implements BlobStoragePort {
                 Files.createDirectories(parent);
             }
             Path tempFile = Files.createTempFile(parent, "blob-write-", ".tmp");
-            Files.writeString(tempFile, content, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            Files.move(tempFile, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            log.debug("Stored blob for key {} at {}", key, target);
+            try {
+                Files.writeString(tempFile, content, StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.move(tempFile, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                log.debug("Stored blob for key {} at {}", key, target);
+            } finally {
+                Files.deleteIfExists(tempFile);
+            }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to store blob for key: " + key, e);
         }
