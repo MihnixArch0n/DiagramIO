@@ -39,6 +39,17 @@ public interface DiagramJpaRepository extends JpaRepository<DiagramEntity, UUID>
 
     Page<DiagramSummaryRecord> findSummaryByIsPublicTrue(Pageable pageable);
 
+    long countByOwnerId(UUID ownerId);
+
+    long countByOwnerIdAndDiagramType(UUID ownerId, String diagramType);
+
+    long countByOwnerIdAndTitleContainingIgnoreCase(UUID ownerId, String title);
+
+    long countByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
+            UUID ownerId, String diagramType, String title);
+
+    long countByIsPublicTrue();
+
     @Transactional
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE DiagramEntity d SET d.storageKey = :storageKey, d.data = NULL WHERE d.id = :id")

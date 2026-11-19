@@ -47,6 +47,7 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
             entityManager.persist(entity);
             entityManager.flush();
         } catch (PersistenceException ex) {
+            blobStorage.delete(storageKey);
             // Safety net: normally lockDiagram serializes requests to avoid conflicting version numbers
             if (ex instanceof ConstraintViolationException || ex.getCause() instanceof ConstraintViolationException) {
                 throw new ConflictException("Another version was saved at the same time, please retry");

@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -43,8 +44,9 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
         UUID id = diagram.getId();
 
         if (id == null) {
-            // New diagram: persist initial record to generate UUID and initialize version = 1
+            // New diagram: persist initial record with null data to eliminate TOAST table bloat
             DiagramEntity entity = mapper.toEntity(diagram, null);
+            entity.setData(null);
             DiagramEntity saved = repository.saveAndFlush(entity);
             id = saved.getId();
             String storageKey = "diagrams/" + id + "/" + UUID.randomUUID() + ".json";
@@ -55,15 +57,20 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
             return mapper.toDomain(saved, dataJson);
         }
 
-        // Existing diagram update: write payload to a new snapshot file (prevents overwriting old file on optimistic lock conflict)
+        // Existing diagram update: write payload to a new snapshot file
+        String oldStorageKey = repository.findById(id).map(DiagramEntity::getStorageKey).orElse(null);
         String storageKey = "diagrams/" + id + "/" + UUID.randomUUID() + ".json";
         blobStorage.store(storageKey, dataJson);
 
         DiagramEntity entity = mapper.toEntity(diagram, storageKey);
         try {
             DiagramEntity saved = repository.saveAndFlush(entity);
+            if (oldStorageKey != null && !oldStorageKey.equals(storageKey)) {
+                blobStorage.delete(oldStorageKey);
+            }
             return mapper.toDomain(saved, dataJson);
         } catch (OptimisticLockingFailureException _) {
+            blobStorage.delete(storageKey);
             Integer currentVersion = repository.findById(diagram.getId()).map(DiagramEntity::getVersion).orElse(null);
             throw new OptimisticLockConflictException(diagram.getId(), diagram.getVersion(), currentVersion);
         }
@@ -74,42 +81,57 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
         return repository.findById(id).map(e -> mapper.toDomain(e, blobStorage));
     }
 
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "updatedAt");
+
     @Override
     public List<Diagram> findByOwnerId(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
-        return findPage(ownerId, diagramType, title, PageRequest.of(page, size))
+        return findPage(ownerId, diagramType, title, PageRequest.of(page, size, DEFAULT_SORT))
                 .map(e -> mapper.toDomain(e, blobStorage))
                 .getContent();
     }
 
     @Override
     public List<DiagramSummary> findSummariesByOwner(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
-        return findSummaryPage(ownerId, diagramType, title, PageRequest.of(page, size))
+        return findSummaryPage(ownerId, diagramType, title, PageRequest.of(page, size, DEFAULT_SORT))
                 .map(this::toSummaryDomain)
                 .getContent();
     }
 
     @Override
     public long countByOwnerId(UUID ownerId, DiagramType diagramType, String title) {
-        return findPage(ownerId, diagramType, title, PageRequest.of(0, 1)).getTotalElements();
+        boolean hasDiagramType = diagramType != null;
+        boolean hasTitle = title != null && !title.isBlank();
+
+        if (hasDiagramType && hasTitle) {
+            return repository.countByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
+                    ownerId, diagramType.name(), title);
+        }
+        if (hasDiagramType) {
+            return repository.countByOwnerIdAndDiagramType(ownerId, diagramType.name());
+        }
+        if (hasTitle) {
+            return repository.countByOwnerIdAndTitleContainingIgnoreCase(ownerId, title);
+        }
+        return repository.countByOwnerId(ownerId);
     }
 
     @Override
     public List<Diagram> findPublicDiagrams(int page, int size) {
-        return repository.findByIsPublicTrue(PageRequest.of(page, size))
+        return repository.findByIsPublicTrue(PageRequest.of(page, size, DEFAULT_SORT))
                 .map(e -> mapper.toDomain(e, blobStorage))
                 .getContent();
     }
 
     @Override
     public List<DiagramSummary> findPublicDiagramSummaries(int page, int size) {
-        return repository.findSummaryByIsPublicTrue(PageRequest.of(page, size))
+        return repository.findSummaryByIsPublicTrue(PageRequest.of(page, size, DEFAULT_SORT))
                 .map(this::toSummaryDomain)
                 .getContent();
     }
 
     @Override
     public long countPublicDiagrams() {
-        return repository.findByIsPublicTrue(PageRequest.of(0, 1)).getTotalElements();
+        return repository.countByIsPublicTrue();
     }
 
     @Override

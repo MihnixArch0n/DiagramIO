@@ -99,6 +99,39 @@ class JpaRepositoriesIntegrationTest {
     }
 
     @Test
+    void claimCheckDeletesOldBlobOnUpdate() {
+        Diagram diagram = newDiagram();
+        var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        String initialStorageKey = entity.getStorageKey();
+        assertThat(blobStorage.load(initialStorageKey)).isPresent();
+
+        diagram.setTitle("Updated Title");
+        diagram.setData(DiagramData.fromStorage("{\"nodes\": [{\"id\": \"updated\"}], \"edges\": []}"));
+        diagramRepository.save(diagram);
+
+        var updatedEntity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        String newStorageKey = updatedEntity.getStorageKey();
+        assertThat(newStorageKey).isNotEqualTo(initialStorageKey);
+        assertThat(blobStorage.load(initialStorageKey)).isEmpty();
+        assertThat(blobStorage.load(newStorageKey)).isPresent();
+    }
+
+    @Test
+    void claimCheckCleansUpNewBlobOnOptimisticLockConflict() {
+        Diagram diagram = newDiagram();
+        Diagram other = diagramRepository.findById(diagram.getId()).orElseThrow();
+        other.setTitle("Updated by other");
+        diagramRepository.save(other);
+
+        diagram.setTitle("Conflicting update");
+        assertThatThrownBy(() -> diagramRepository.save(diagram))
+                .isInstanceOf(OptimisticLockConflictException.class);
+
+        var currentEntity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        assertThat(blobStorage.load(currentEntity.getStorageKey())).isPresent();
+    }
+
+    @Test
     void savesAndReadsSnapshotsNewestFirst() {
         Diagram diagram = newDiagram();
         versionRepository.save(snapshot(diagram.getId(), 1));
