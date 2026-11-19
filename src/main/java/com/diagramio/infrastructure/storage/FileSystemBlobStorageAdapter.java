@@ -86,6 +86,9 @@ public class FileSystemBlobStorageAdapter implements BlobStoragePort {
     @Override
     public void deleteAllPrefix(String prefix) {
         Path prefixPath = resolveKey(prefix);
+        if (prefixPath.equals(rootDir)) {
+            throw new IllegalArgumentException("Cannot delete root directory as prefix");
+        }
         if (!Files.exists(prefixPath)) {
             return;
         }

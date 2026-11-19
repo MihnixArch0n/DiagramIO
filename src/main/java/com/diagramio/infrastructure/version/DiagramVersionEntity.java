@@ -82,7 +82,11 @@ public class DiagramVersionEntity {
     }
 
     DiagramVersion toDomain() {
-        return toDomain(null);
+        return toDomain((BlobStoragePort) null);
+    }
+
+    DiagramVersion toDomain(DiagramData data) {
+        return new DiagramVersion(id, diagramId, versionNumber, data, note, createdBy, createdAt);
     }
 
     DiagramVersion toDomain(BlobStoragePort blobStorage) {

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.diagramio.config.StorageConfig;
+import com.diagramio.domain.TransactionRunner;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.BlobStoragePort;
 import com.diagramio.domain.diagram.Diagram;
@@ -32,6 +33,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
@@ -40,7 +43,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({DiagramRepositoryAdapter.class, DiagramMapper.class, DiagramVersionRepositoryAdapter.class,
-        DiagramShareRepositoryAdapter.class, DiagramShareMapper.class, StorageConfig.class})
+        DiagramShareRepositoryAdapter.class, DiagramShareMapper.class, StorageConfig.class,
+        TransactionTemplateRunner.class})
 class JpaRepositoriesIntegrationTest {
 
     @ServiceConnection
@@ -64,6 +68,9 @@ class JpaRepositoriesIntegrationTest {
 
     @Autowired
     private BlobStoragePort blobStorage;
+
+    @Autowired
+    private TransactionRunner transactionRunner;
 
     @Test
     void claimCheckStoresBlobAndClearsDataInDatabase() {
@@ -100,6 +107,7 @@ class JpaRepositoriesIntegrationTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void claimCheckDeletesOldBlobOnUpdate() {
         Diagram diagram = newDiagram();
         var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
@@ -115,6 +123,46 @@ class JpaRepositoriesIntegrationTest {
         assertThat(newStorageKey).isNotEqualTo(initialStorageKey);
         assertThat(blobStorage.load(initialStorageKey)).isEmpty();
         assertThat(blobStorage.load(newStorageKey)).isPresent();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void claimCheckDeletesOldBlobOnlyAfterTransactionCommit() {
+        Diagram diagram = newDiagram();
+        var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        String initialStorageKey = entity.getStorageKey();
+        assertThat(blobStorage.load(initialStorageKey)).isPresent();
+
+        transactionRunner.inTransaction(() -> {
+            diagram.setTitle("Updated in Transaction");
+            diagram.setData(DiagramData.fromStorage("{\"nodes\": [{\"id\": \"tx-updated\"}], \"edges\": []}"));
+            diagramRepository.save(diagram);
+            // Before commit: old storage key must still exist for rollback safety
+            assertThat(blobStorage.load(initialStorageKey)).isPresent();
+            return null;
+        });
+
+        // After commit: old storage key is cleaned up
+        assertThat(blobStorage.load(initialStorageKey)).isEmpty();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void claimCheckPreservesOldBlobWhenTransactionRollsBack() {
+        Diagram diagram = newDiagram();
+        var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
+        String initialStorageKey = entity.getStorageKey();
+        assertThat(blobStorage.load(initialStorageKey)).isPresent();
+
+        assertThatThrownBy(() -> transactionRunner.inTransaction(() -> {
+            diagram.setTitle("Failing Title");
+            diagram.setData(DiagramData.fromStorage("{\"nodes\": [{\"id\": \"failed\"}], \"edges\": []}"));
+            diagramRepository.save(diagram);
+            throw new RuntimeException("Simulated failure to trigger rollback");
+        })).isInstanceOf(RuntimeException.class);
+
+        // Transaction rolled back: old blob must still exist!
+        assertThat(blobStorage.load(initialStorageKey)).isPresent();
     }
 
     @Test

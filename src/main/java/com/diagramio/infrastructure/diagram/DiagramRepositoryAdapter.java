@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
 public class DiagramRepositoryAdapter implements DiagramRepository {
@@ -55,6 +57,7 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
                 repository.updateStorageKey(id, storageKey);
                 saved.setStorageKey(storageKey);
                 saved.setData(null);
+                registerRollbackBlobCleanup(storageKey);
                 return mapper.toDomain(saved, dataJson);
             } catch (Throwable ex) {
                 blobStorage.delete(storageKey);
@@ -75,8 +78,9 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
         try {
             DiagramEntity saved = repository.saveAndFlush(entity);
             if (oldStorageKey != null && !oldStorageKey.equals(storageKey)) {
-                blobStorage.delete(oldStorageKey);
+                scheduleOldBlobDeletion(oldStorageKey);
             }
+            registerRollbackBlobCleanup(storageKey);
             return mapper.toDomain(saved, dataJson);
         } catch (OptimisticLockingFailureException _) {
             blobStorage.delete(storageKey);
@@ -88,6 +92,32 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
                 throw re;
             }
             throw new RuntimeException(ex);
+        }
+    }
+
+    private void scheduleOldBlobDeletion(String oldStorageKey) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    blobStorage.delete(oldStorageKey);
+                }
+            });
+        } else {
+            blobStorage.delete(oldStorageKey);
+        }
+    }
+
+    private void registerRollbackBlobCleanup(String storageKey) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        blobStorage.delete(storageKey);
+                    }
+                }
+            });
         }
     }
 

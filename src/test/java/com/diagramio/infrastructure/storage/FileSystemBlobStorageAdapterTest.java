@@ -82,4 +82,11 @@ class FileSystemBlobStorageAdapterTest {
         assertThatThrownBy(() -> storageAdapter.store("../outside.json", "hacked"))
                 .isInstanceOf(SecurityException.class);
     }
+
+    @Test
+    void deleteAllPrefixRejectsRootDirectory() {
+        assertThatThrownBy(() -> storageAdapter.deleteAllPrefix("."))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Cannot delete root directory as prefix");
+    }
 }

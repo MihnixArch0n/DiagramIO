@@ -13,6 +13,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Repository
 public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository {
@@ -47,6 +49,7 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
         try {
             entityManager.persist(entity);
             entityManager.flush();
+            registerRollbackBlobCleanup(storageKey);
         } catch (Throwable ex) {
             blobStorage.delete(storageKey);
             // Safety net: normally lockDiagram serializes requests to avoid conflicting version numbers
@@ -58,7 +61,20 @@ public class DiagramVersionRepositoryAdapter implements DiagramVersionRepository
             }
             throw new RuntimeException(ex);
         }
-        return entity.toDomain(blobStorage);
+        return entity.toDomain(version.data());
+    }
+
+    private void registerRollbackBlobCleanup(String storageKey) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status == STATUS_ROLLED_BACK) {
+                        blobStorage.delete(storageKey);
+                    }
+                }
+            });
+        }
     }
 
     @Override
