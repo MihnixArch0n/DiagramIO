@@ -22,20 +22,28 @@ public class DiagramCommandService {
         this.access = new DiagramAccess(repository);
     }
 
-    public Diagram createDiagram(Diagram diagram) {
-        if (diagram == null) {
-            throw new InvalidInputException("Diagram is required");
+    public Diagram createDiagram(UUID ownerId, String title, DiagramType diagramType) {
+        if (ownerId == null) {
+            throw new InvalidInputException("ownerId is required");
         }
-        requireType(diagram.getDiagramType());
-        if (diagram.getData() == null) {
-            diagram.setData(DiagramData.EMPTY);
+        if (title == null || title.isBlank()) {
+            throw new InvalidInputException("title is required");
         }
+        requireType(diagramType);
 
         Instant now = Instant.now();
-        diagram.setVersion(1);
-        diagram.setPublic(false);
-        diagram.setCreatedAt(now);
-        diagram.setUpdatedAt(now);
+        Diagram diagram = new Diagram(
+                null,
+                title.trim(),
+                diagramType,
+                DiagramData.EMPTY,
+                1,
+                false,
+                ownerId,
+                null,
+                now,
+                now
+        );
         return repository.save(diagram);
     }
 
