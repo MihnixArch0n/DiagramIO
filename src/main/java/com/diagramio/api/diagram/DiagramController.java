@@ -10,8 +10,9 @@ import com.diagramio.api.dto.PageResponse;
 import com.diagramio.config.OpenApiConfig;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.diagram.Diagram;
+import com.diagramio.domain.diagram.DiagramCommandService;
 import com.diagramio.domain.diagram.DiagramData;
-import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramQueryService;
 import com.diagramio.domain.diagram.DiagramSummary;
 import com.diagramio.domain.diagram.DiagramType;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,10 +48,13 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
         content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
 public class DiagramController {
 
-    private final DiagramService diagramService;
+    private final DiagramCommandService diagramCommandService;
+    private final DiagramQueryService diagramQueryService;
 
-    public DiagramController(DiagramService diagramService) {
-        this.diagramService = diagramService;
+    public DiagramController(DiagramCommandService diagramCommandService,
+                             DiagramQueryService diagramQueryService) {
+        this.diagramCommandService = diagramCommandService;
+        this.diagramQueryService = diagramQueryService;
     }
 
     @GetMapping
@@ -65,8 +69,8 @@ public class DiagramController {
             @RequestParam(defaultValue = "20") int size,
             @CurrentUser UUID ownerId) {
         DiagramType typeFilter = diagramType == null || diagramType.isBlank() ? null : DiagramType.from(diagramType);
-        List<DiagramSummary> summaries = diagramService.getDiagramSummariesByOwner(ownerId, typeFilter, title, page, size);
-        long total = diagramService.countDiagramsByOwner(ownerId, typeFilter, title);
+        List<DiagramSummary> summaries = diagramQueryService.getDiagramSummariesByOwner(ownerId, typeFilter, title, page, size);
+        long total = diagramQueryService.countDiagramsByOwner(ownerId, typeFilter, title);
         return pageResponse(summaries, page, size, total);
     }
 
@@ -82,7 +86,7 @@ public class DiagramController {
         diagram.setTitle(request.title());
         diagram.setDiagramType(DiagramType.from(request.diagramType()));
         diagram.setOwnerId(ownerId);
-        Diagram created = diagramService.createDiagram(diagram);
+        Diagram created = diagramCommandService.createDiagram(diagram);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(created.getId())
@@ -97,8 +101,8 @@ public class DiagramController {
     public PageResponse<DiagramSummaryResponse> getPublicDiagrams(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        List<DiagramSummary> summaries = diagramService.getPublicDiagramSummaries(page, size);
-        return pageResponse(summaries, page, size, diagramService.countPublicDiagrams());
+        List<DiagramSummary> summaries = diagramQueryService.getPublicDiagramSummaries(page, size);
+        return pageResponse(summaries, page, size, diagramQueryService.countPublicDiagrams());
     }
 
     @GetMapping("/{id}")
@@ -110,7 +114,7 @@ public class DiagramController {
     @ApiResponse(responseCode = "404", description = "Không tìm thấy sơ đồ",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public DiagramResponse getById(@PathVariable UUID id, Caller caller) {
-        return DiagramResponse.from(diagramService.getDiagramById(id, caller));
+        return DiagramResponse.from(diagramQueryService.getDiagramById(id, caller));
     }
 
     @PutMapping("/{id}")
@@ -128,7 +132,7 @@ public class DiagramController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateDiagramRequest request,
             Caller caller) {
-        return DiagramResponse.from(diagramService.updateDiagram(
+        return DiagramResponse.from(diagramCommandService.updateDiagram(
                 id, request.title(), DiagramType.from(request.diagramType()),
                 DiagramData.of(request.data().toString()),
                 Boolean.TRUE.equals(request.isPublic()),
@@ -144,7 +148,7 @@ public class DiagramController {
     @ApiResponse(responseCode = "404", description = "Không tìm thấy sơ đồ",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public ResponseEntity<Void> delete(@PathVariable UUID id, Caller caller) {
-        diagramService.deleteDiagram(id, caller);
+        diagramCommandService.deleteDiagram(id, caller);
         return ResponseEntity.noContent().build();
     }
 
