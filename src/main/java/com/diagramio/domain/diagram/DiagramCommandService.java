@@ -50,7 +50,7 @@ public class DiagramCommandService {
         if (id == null) {
             throw new InvalidInputException("Diagram id is required");
         }
-        Diagram current = access.require(id, caller, Permission.EDIT);
+        Diagram current = access.requireMetadata(id, caller, Permission.EDIT);
         checkVersion(id, requestVersion, current.getVersion());
         requireType(diagramType);
         if (data == null) {
@@ -68,7 +68,7 @@ public class DiagramCommandService {
     }
 
     public void deleteDiagram(UUID id, Caller caller) {
-        access.require(id, caller, Permission.MANAGE);
+        access.requireMetadata(id, caller, Permission.MANAGE);
         repository.deleteById(id);
     }
 

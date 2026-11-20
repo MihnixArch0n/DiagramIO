@@ -10,8 +10,9 @@ import com.diagramio.domain.exception.OptimisticLockConflictException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
@@ -20,6 +21,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Repository
 public class DiagramRepositoryAdapter implements DiagramRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(DiagramRepositoryAdapter.class);
 
     private final DiagramJpaRepository repository;
     private final DiagramMapper mapper;
@@ -126,14 +129,12 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
         return repository.findById(id).map(e -> mapper.toDomain(e, blobStorage));
     }
 
-    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "updatedAt");
-
     @Override
-    public List<Diagram> findByOwnerId(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
-        return findPage(ownerId, diagramType, title, PageRequest.of(page, size, DEFAULT_SORT))
-                .map(e -> mapper.toDomain(e, blobStorage))
-                .getContent();
+    public Optional<Diagram> findMetadataById(UUID id) {
+        return repository.findById(id).map(mapper::toDomain);
     }
+
+    private static final Sort DEFAULT_SORT = Sort.by(Sort.Direction.DESC, "updatedAt");
 
     @Override
     public List<DiagramSummary> findSummariesByOwner(UUID ownerId, DiagramType diagramType, String title, int page, int size) {
@@ -161,13 +162,6 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     }
 
     @Override
-    public List<Diagram> findPublicDiagrams(int page, int size) {
-        return repository.findByIsPublicTrue(PageRequest.of(page, size, DEFAULT_SORT))
-                .map(e -> mapper.toDomain(e, blobStorage))
-                .getContent();
-    }
-
-    @Override
     public List<DiagramSummary> findPublicDiagramSummaries(int page, int size) {
         return repository.findSummaryByIsPublicTrue(PageRequest.of(page, size, DEFAULT_SORT)).stream()
                 .map(this::toSummaryDomain)
@@ -182,25 +176,11 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     @Override
     public void deleteById(UUID id) {
         repository.deleteById(id);
-        blobStorage.deleteAllPrefix("diagrams/" + id);
-    }
-
-    private Page<DiagramEntity> findPage(
-            UUID ownerId, DiagramType diagramType, String title, PageRequest pageRequest) {
-        boolean hasDiagramType = diagramType != null;
-        boolean hasTitle = title != null && !title.isBlank();
-
-        if (hasDiagramType && hasTitle) {
-            return repository.findByOwnerIdAndDiagramTypeAndTitleContainingIgnoreCase(
-                    ownerId, diagramType.name(), title, pageRequest);
+        try {
+            blobStorage.deleteAllPrefix("diagrams/" + id);
+        } catch (Exception ex) {
+            log.warn("Failed to delete blob prefix for diagram {}: {}", id, ex.getMessage());
         }
-        if (hasDiagramType) {
-            return repository.findByOwnerIdAndDiagramType(ownerId, diagramType.name(), pageRequest);
-        }
-        if (hasTitle) {
-            return repository.findByOwnerIdAndTitleContainingIgnoreCase(ownerId, title, pageRequest);
-        }
-        return repository.findByOwnerId(ownerId, pageRequest);
     }
 
     private List<DiagramSummaryRecord> findSummaryRecords(
