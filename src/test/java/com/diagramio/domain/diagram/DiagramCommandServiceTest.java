@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
+import com.diagramio.domain.exception.DiagramNotFoundException;
 import com.diagramio.domain.exception.ForbiddenException;
 import com.diagramio.domain.exception.InvalidInputException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
@@ -176,6 +177,54 @@ class DiagramCommandServiceTest {
                 () -> service.deleteDiagram(id, Caller.shareToken(id, ShareRole.EDIT)));
 
         verify(repository, never()).deleteById(id);
+    }
+
+    @Test
+    void updateDiagramRequiresId() {
+        assertThrows(InvalidInputException.class, () -> service.updateDiagram(
+                null, "Orders", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(UUID.randomUUID()), 1));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void updateDiagramRequiresRequestVersion() {
+        UUID id = UUID.randomUUID();
+        Diagram current = diagram(id, 1);
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
+
+        assertThrows(OptimisticLockConflictException.class, () -> service.updateDiagram(
+                id, "Orders", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(current.getOwnerId()), null));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void updateDiagramRequiresType() {
+        UUID id = UUID.randomUUID();
+        Diagram current = diagram(id, 1);
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
+
+        assertThrows(InvalidInputException.class, () -> service.updateDiagram(
+                id, "Orders", null, DiagramData.EMPTY, false, Caller.user(current.getOwnerId()), 1));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void updateDiagramNonExistentThrowsDiagramNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(repository.findMetadataById(id)).thenReturn(Optional.empty());
+
+        assertThrows(DiagramNotFoundException.class, () -> service.updateDiagram(
+                id, "Orders", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(UUID.randomUUID()), 1));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void deleteDiagramNonExistentThrowsDiagramNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(repository.findMetadataById(id)).thenReturn(Optional.empty());
+
+        assertThrows(DiagramNotFoundException.class, () -> service.deleteDiagram(id, Caller.user(UUID.randomUUID())));
+        verify(repository, never()).deleteById(any(UUID.class));
     }
 
     @Test

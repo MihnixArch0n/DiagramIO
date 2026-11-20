@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
+import com.diagramio.domain.exception.DiagramNotFoundException;
+import com.diagramio.domain.exception.ForbiddenException;
 import com.diagramio.domain.exception.InvalidInputException;
 import com.diagramio.domain.exception.UnauthorizedException;
 import java.util.List;
@@ -60,6 +62,51 @@ class DiagramQueryServiceTest {
 
         diagram.setPublic(true);
         assertEquals(diagram, service.getDiagramById(id, Caller.anonymous()));
+    }
+
+    @Test
+    void getDiagramByIdNotFoundThrowsDiagramNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(repository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(DiagramNotFoundException.class, () -> service.getDiagramById(id, Caller.user(UUID.randomUUID())));
+    }
+
+    @Test
+    void getDiagramByIdAllowsOwner() {
+        UUID id = UUID.randomUUID();
+        Diagram diagram = diagram(id, 1);
+        when(repository.findById(id)).thenReturn(Optional.of(diagram));
+
+        assertEquals(diagram, service.getDiagramById(id, Caller.user(diagram.getOwnerId())));
+    }
+
+    @Test
+    void getDiagramByIdRejectsStrangerForPrivateDiagramWith403() {
+        UUID id = UUID.randomUUID();
+        Diagram diagram = diagram(id, 1);
+        when(repository.findById(id)).thenReturn(Optional.of(diagram));
+
+        assertThrows(ForbiddenException.class, () -> service.getDiagramById(id, Caller.user(UUID.randomUUID())));
+    }
+
+    @Test
+    void getDiagramSummariesByOwnerValidatesNegativePageAndZeroSize() {
+        UUID ownerId = UUID.randomUUID();
+        assertThrows(InvalidInputException.class,
+                () -> service.getDiagramSummariesByOwner(ownerId, null, null, -1, 10));
+        assertThrows(InvalidInputException.class,
+                () -> service.getDiagramSummariesByOwner(ownerId, null, null, 0, 0));
+    }
+
+    @Test
+    void normalizeFilterHandlesNullEmptyAndWhitespace() {
+        UUID ownerId = UUID.randomUUID();
+        when(repository.countByOwnerId(ownerId, null, "")).thenReturn(3L);
+
+        assertEquals(3L, service.countDiagramsByOwner(ownerId, null, null));
+        assertEquals(3L, service.countDiagramsByOwner(ownerId, null, "   "));
+        verify(repository, org.mockito.Mockito.times(2)).countByOwnerId(ownerId, null, "");
     }
 
     @Test
