@@ -11,6 +11,8 @@ public interface DiagramVersionJpaRepository extends JpaRepository<DiagramVersio
 
     List<DiagramVersionEntity> findByDiagramIdOrderByVersionNumberDesc(UUID diagramId);
 
+    List<DiagramVersionSummaryRecord> findSummaryByDiagramIdOrderByVersionNumberDesc(UUID diagramId);
+
     Optional<DiagramVersionEntity> findByIdAndDiagramId(UUID id, UUID diagramId);
 
     @Query("select coalesce(max(v.versionNumber), 0) from DiagramVersionEntity v where v.diagramId = :diagramId")

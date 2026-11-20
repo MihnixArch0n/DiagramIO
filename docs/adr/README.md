@@ -7,3 +7,4 @@ All records follow Michael Nygard's format and are maintained in English.
 | ADR | Title | Status | Date |
 |---|---|---|---|
 | [0000](0000-use-architecture-decision-records.md) | Record Architecture Decisions | accepted | 2026-11-16 |
+| [0001](0001-claim-check-diagram-storage.md) | Claim-Check Pattern for Diagram Payload Storage | accepted | 2026-11-19 |

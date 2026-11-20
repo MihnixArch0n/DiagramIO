@@ -20,12 +20,14 @@ import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
 import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramSummary;
 import com.diagramio.domain.diagram.DiagramType;
 import com.diagramio.domain.exception.DiagramNotFoundException;
 import com.diagramio.domain.exception.ForbiddenException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -186,6 +188,37 @@ class DiagramControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nodes").isArray())
                 .andExpect(jsonPath("$.data.edges").isArray());
+    }
+
+    @Test
+    void getMyDiagramsReturnsSummaryList() throws Exception {
+        DiagramSummary summary = new DiagramSummary(DIAGRAM_ID, "Orders", DiagramType.ERD, 1,
+                false, USER_ID, USER_ID, null, null);
+        when(diagramService.getDiagramSummariesByOwner(eq(USER_ID), any(), any(), eq(0), eq(20)))
+                .thenReturn(List.of(summary));
+        when(diagramService.countDiagramsByOwner(eq(USER_ID), any(), any())).thenReturn(1L);
+
+        mockMvc.perform(get("/api/v1/diagrams")
+                        .with(user(USER_ID.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(DIAGRAM_ID.toString()))
+                .andExpect(jsonPath("$.content[0].title").value("Orders"))
+                .andExpect(jsonPath("$.content[0].data").doesNotExist());
+    }
+
+    @Test
+    void getPublicDiagramsReturnsSummaryList() throws Exception {
+        DiagramSummary summary = new DiagramSummary(DIAGRAM_ID, "Public Diagram", DiagramType.UML, 1,
+                true, USER_ID, USER_ID, null, null);
+        when(diagramService.getPublicDiagramSummaries(eq(0), eq(20)))
+                .thenReturn(List.of(summary));
+        when(diagramService.countPublicDiagrams()).thenReturn(1L);
+
+        mockMvc.perform(get("/api/v1/diagrams/public"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(DIAGRAM_ID.toString()))
+                .andExpect(jsonPath("$.content[0].title").value("Public Diagram"))
+                .andExpect(jsonPath("$.content[0].data").doesNotExist());
     }
 
     private Diagram diagram() {

@@ -1,5 +1,6 @@
 package com.diagramio.infrastructure.diagram;
 
+import com.diagramio.domain.diagram.BlobStoragePort;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
 import com.diagramio.domain.diagram.DiagramType;
@@ -9,6 +10,26 @@ import org.springframework.stereotype.Component;
 public class DiagramMapper {
 
     public Diagram toDomain(DiagramEntity entity) {
+        return toDomain(entity, (BlobStoragePort) null);
+    }
+
+    public Diagram toDomain(DiagramEntity entity, BlobStoragePort blobStorage) {
+        if (entity == null) {
+            return null;
+        }
+        String dataJson = null;
+        if (entity.getStorageKey() != null && blobStorage != null) {
+            dataJson = blobStorage.load(entity.getStorageKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Payload blob missing for diagram " + entity.getId() + " at storage key: " + entity.getStorageKey()));
+        }
+        if (dataJson == null) {
+            dataJson = entity.getData();
+        }
+        return toDomain(entity, dataJson);
+    }
+
+    public Diagram toDomain(DiagramEntity entity, String dataJson) {
         if (entity == null) {
             return null;
         }
@@ -16,7 +37,7 @@ public class DiagramMapper {
                 entity.getId(),
                 entity.getTitle(),
                 entity.getDiagramType() == null ? null : DiagramType.valueOf(entity.getDiagramType()),
-                entity.getData() == null ? null : DiagramData.fromStorage(entity.getData()),
+                dataJson == null ? null : DiagramData.fromStorage(dataJson),
                 entity.getVersion(),
                 entity.isPublic(),
                 entity.getOwnerId(),
@@ -26,6 +47,10 @@ public class DiagramMapper {
     }
 
     public DiagramEntity toEntity(Diagram diagram) {
+        return toEntity(diagram, null);
+    }
+
+    public DiagramEntity toEntity(Diagram diagram, String storageKey) {
         if (diagram == null) {
             return null;
         }
@@ -33,7 +58,9 @@ public class DiagramMapper {
         entity.setId(diagram.getId());
         entity.setTitle(diagram.getTitle());
         entity.setDiagramType(diagram.getDiagramType() == null ? null : diagram.getDiagramType().name());
-        entity.setData(diagram.getData() == null ? null : diagram.getData().json());
+        entity.setStorageKey(storageKey);
+        // If storageKey is present, leave data column null to avoid TOAST table bloat
+        entity.setData((storageKey == null && diagram.getData() != null) ? diagram.getData().json() : null);
         entity.setVersion(diagram.getVersion());
         entity.setPublic(diagram.isPublic());
         entity.setOwnerId(diagram.getOwnerId());

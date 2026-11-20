@@ -82,6 +82,12 @@ public class DiagramService {
         return repository.findByOwnerId(ownerId, diagramType, normalizeFilter(title), page, size);
     }
 
+    public List<DiagramSummary> getDiagramSummariesByOwner(UUID ownerId, DiagramType diagramType, String title,
+                                                          int page, int size) {
+        validatePage(page, size);
+        return repository.findSummariesByOwner(ownerId, diagramType, normalizeFilter(title), page, size);
+    }
+
     public long countDiagramsByOwner(UUID ownerId, DiagramType diagramType, String title) {
         return repository.countByOwnerId(ownerId, diagramType, normalizeFilter(title));
     }
@@ -89,6 +95,11 @@ public class DiagramService {
     public List<Diagram> getPublicDiagrams(int page, int size) {
         validatePage(page, size);
         return repository.findPublicDiagrams(page, size);
+    }
+
+    public List<DiagramSummary> getPublicDiagramSummaries(int page, int size) {
+        validatePage(page, size);
+        return repository.findPublicDiagramSummaries(page, size);
     }
 
     public long countPublicDiagrams() {

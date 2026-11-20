@@ -1,6 +1,7 @@
 package com.diagramio.api.version.dto;
 
 import com.diagramio.domain.version.DiagramVersion;
+import com.diagramio.domain.version.DiagramVersionSummary;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -10,5 +11,9 @@ public record DiagramVersionSummaryResponse(UUID id, int versionNumber, String n
 
     public static DiagramVersionSummaryResponse from(DiagramVersion v) {
         return new DiagramVersionSummaryResponse(v.id(), v.versionNumber(), v.note(), v.createdBy(), v.createdAt());
+    }
+
+    public static DiagramVersionSummaryResponse from(DiagramVersionSummary s) {
+        return new DiagramVersionSummaryResponse(s.id(), s.versionNumber(), s.note(), s.createdBy(), s.createdAt());
     }
 }

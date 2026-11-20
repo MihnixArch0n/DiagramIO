@@ -12,9 +12,13 @@ public interface DiagramRepository {
     /** diagramType null = không lọc theo loại; title rỗng = không tìm theo tên. */
     List<Diagram> findByOwnerId(UUID ownerId, DiagramType diagramType, String title, int page, int size);
 
+    List<DiagramSummary> findSummariesByOwner(UUID ownerId, DiagramType diagramType, String title, int page, int size);
+
     long countByOwnerId(UUID ownerId, DiagramType diagramType, String title);
 
     List<Diagram> findPublicDiagrams(int page, int size);
+
+    List<DiagramSummary> findPublicDiagramSummaries(int page, int size);
 
     long countPublicDiagrams();
 
