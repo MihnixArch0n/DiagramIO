@@ -82,11 +82,8 @@ public class DiagramController {
     public ResponseEntity<DiagramResponse> create(
             @Valid @RequestBody CreateDiagramRequest request,
             @CurrentUser UUID ownerId) {
-        Diagram diagram = new Diagram();
-        diagram.setTitle(request.title());
-        diagram.setDiagramType(DiagramType.from(request.diagramType()));
-        diagram.setOwnerId(ownerId);
-        Diagram created = diagramCommandService.createDiagram(diagram);
+        Diagram created = diagramCommandService.createDiagram(
+                ownerId, request.title(), DiagramType.from(request.diagramType()));
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(created.getId())

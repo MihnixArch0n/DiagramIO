@@ -45,7 +45,7 @@ class DiagramControllerTest {
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final UUID DIAGRAM_ID = UUID.randomUUID();
-    // data gửi lên là object JSON; controller chuyển thành chuỗi gọn trước khi xuống domain
+    // Data sent in request is a JSON object; controller converts to a compact string before domain
     private static final String SENT_DATA = "{\"nodes\":[],\"edges\":[]}";
 
     @Autowired
@@ -58,14 +58,14 @@ class DiagramControllerTest {
     private DiagramQueryService diagramQueryService;
 
     @MockitoBean
-    private JwtTokenProvider jwtTokenProvider; // SecurityConfig cần; mặc định coi mọi token là không hợp lệ
+    private JwtTokenProvider jwtTokenProvider; // Required by SecurityConfig; defaults to invalid token
 
     @MockitoBean
-    private ShareService shareService; // filter X-Share-Token cần; mặc định coi mọi token là không hợp lệ
+    private ShareService shareService; // Required by X-Share-Token filter; defaults to invalid token
 
     @Test
     void createReturns201ForValidRequest() throws Exception {
-        when(diagramCommandService.createDiagram(any(Diagram.class))).thenReturn(diagram());
+        when(diagramCommandService.createDiagram(eq(USER_ID), eq("Orders"), eq(DiagramType.ERD))).thenReturn(diagram());
 
         mockMvc.perform(post("/api/v1/diagrams")
                         .with(user(USER_ID.toString()))

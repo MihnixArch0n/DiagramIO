@@ -39,27 +39,25 @@ class DiagramCommandServiceTest {
     @Test
     void createDiagramUsesDefaultDataAndPrivateVisibility() {
         when(repository.save(any(Diagram.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        Diagram diagram = new Diagram();
-        diagram.setTitle("Orders");
-        diagram.setDiagramType(DiagramType.ERD);
-        diagram.setData(null);
-        diagram.setPublic(true);
+        UUID ownerId = UUID.randomUUID();
 
-        Diagram created = service.createDiagram(diagram);
+        Diagram created = service.createDiagram(ownerId, "  Orders  ", DiagramType.ERD);
 
+        assertEquals("Orders", created.getTitle());
+        assertEquals(ownerId, created.getOwnerId());
         assertEquals(DiagramData.EMPTY, created.getData());
         assertFalse(created.isPublic());
         assertEquals(1, created.getVersion());
-        verify(repository).save(diagram);
+        verify(repository).save(any(Diagram.class));
     }
 
     @Test
-    void createDiagramRequiresDiagramAndType() {
-        assertThrows(InvalidInputException.class, () -> service.createDiagram(null));
-
-        Diagram diagramWithoutType = new Diagram();
-        diagramWithoutType.setTitle("No Type");
-        assertThrows(InvalidInputException.class, () -> service.createDiagram(diagramWithoutType));
+    void createDiagramRequiresOwnerTitleAndType() {
+        UUID ownerId = UUID.randomUUID();
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(null, "Orders", DiagramType.ERD));
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(ownerId, null, DiagramType.ERD));
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(ownerId, "   ", DiagramType.ERD));
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(ownerId, "Orders", null));
     }
 
     @Test
