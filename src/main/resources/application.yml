@@ -15,10 +15,20 @@ spring:
       ddl-auto: validate # Schema do Flyway quản lý, Hibernate chỉ kiểm tra
   flyway:
     enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      connect-timeout: 2s
+      timeout: 2s
+      repositories:
+        enabled: false
   docker:
     compose:
       start:
-        arguments: "postgres"
+        arguments:
+          - postgres
+          - redis
 
 server:
   # Sau proxy/load balancer: dùng X-Forwarded-Host/Proto để ghép đúng địa chỉ bên ngoài (vd. shareUrl)

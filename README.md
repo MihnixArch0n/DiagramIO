@@ -1,4 +1,4 @@
-# DiagramIO
+                          # DiagramIO
 
 DiagramIO là backend REST API (JSON) cho một web vẽ sơ đồ UML và ERD trực tuyến: quản lý tài khoản, lưu trữ sơ đồ, lịch sử phiên bản và chia sẻ sơ đồ qua link. Đây là bài tập lớn môn Kiến trúc phần mềm. Dự án đã hoàn thành **Pha 1 (hệ thống baseline)** và đang triển khai **Pha 2 (cải tiến kiến trúc theo các thuộc tính chất lượng)**. Mọi cải tiến đều được đo lường đối chứng Trước/Sau trên cùng môi trường Kaggle CPU.
 
@@ -132,19 +132,22 @@ Chạy toàn bộ bằng Docker:
 
 ```bash
 cp .env.example .env            # đổi mật khẩu, JWT_SECRET, cổng nếu cần
-docker compose up -d --build    # build image app, chạy PostgreSQL và app
+docker compose up -d --build    # build image app, chạy PostgreSQL, Redis và app
 ```
 
 App chạy ở `http://localhost:8080` (đổi bằng `APP_PORT`). Flyway tự tạo bảng và tài khoản mẫu `uet@gmail.com` / `uet123456` ở lần chạy đầu. Container app có healthcheck gọi `/api/v1/health`.
 
-Chạy app từ IDE hoặc `./gradlew bootRun` khi đang phát triển: Nhờ tích hợp `spring-boot-docker-compose`, Spring Boot sẽ tự động quét `docker-compose.yml`, khởi động container PostgreSQL và tự động cấu hình kết nối CSDL (Service Connection) mà không cần bật CSDL thủ công hay cấu hình file `.env`. Hai cách chạy dùng chung cổng 8080, không chạy cùng lúc.
+Chạy app từ IDE hoặc `./gradlew bootRun` khi đang phát triển: Nhờ tích hợp `spring-boot-docker-compose`, Spring Boot sẽ tự động quét `docker-compose.yml`, khởi động container PostgreSQL, Redis và tự động cấu hình kết nối (Service Connection) mà không cần bật CSDL thủ công hay cấu hình file `.env`. Hai cách chạy dùng chung cổng 8080, không chạy cùng lúc.
 
 | Biến trong `.env` | Ý nghĩa |
 |---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Tài khoản và tên CSDL; mật khẩu chỉ có tác dụng ở lần đầu tạo volume |
 | `POSTGRES_PORT`, `APP_PORT` | Cổng mở ra máy cho CSDL và app |
 | `SPRING_DATASOURCE_*` | Kết nối CSDL khi chạy app từ IDE |
+| `REDIS_HOST`, `REDIS_PORT` | Redis khi chạy app trên host, mặc định `localhost:6379`; Compose dùng `redis:6379` bên trong mạng Docker |
 | `JWT_SECRET` | Khóa ký JWT, ít nhất 32 ký tự; bắt buộc đổi khi triển khai thật |
+
+Redis hiện được cấu hình làm hạ tầng dùng chung; chưa bật cache hay giới hạn request login. Cổng Redis chỉ được publish trên loopback `127.0.0.1`; không mở Redis trực tiếp ra Internet. Dữ liệu Redis chưa cấu hình persistence và có thể mất khi tạo lại container. Khi triển khai thật, dùng mạng riêng và cấu hình ACL/TLS phù hợp. Kiểm tra kết nối bằng `docker compose exec redis redis-cli ping` (kết quả `PONG`).
 
 Thử nhanh bằng `curl`:
 

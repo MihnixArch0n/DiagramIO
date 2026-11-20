@@ -21,6 +21,19 @@ services:
     networks:
       - diagramio
 
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - diagramio
+
   app:
     build: .
     image: diagramio-app
@@ -31,11 +44,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       # Trong mạng Docker, DB được gọi bằng tên service "postgres" và cổng bên trong 5432
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-diagram_app}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-root}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-please-change-it-32chars}
     ports:
       - "${APP_PORT:-8080}:8080"
