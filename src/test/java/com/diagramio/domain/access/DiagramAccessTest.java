@@ -38,6 +38,7 @@ class DiagramAccessTest {
         diagram = new Diagram(diagramId, "ERD", DiagramType.ERD, DiagramData.fromStorage("{\"nodes\": [], \"edges\": []}"), 1, false, ownerId,
                 null, null, null);
         when(repository.findById(diagramId)).thenReturn(Optional.of(diagram));
+        when(repository.findMetadataById(diagramId)).thenReturn(Optional.of(diagram));
         owner = Caller.user(ownerId);
         editLink = Caller.shareToken(diagramId, ShareRole.EDIT);
         viewLink = Caller.shareToken(diagramId, ShareRole.VIEW);
@@ -112,6 +113,18 @@ class DiagramAccessTest {
     void deniedMessageNamesThePermission() {
         assertThatThrownBy(() -> access.require(diagramId, viewLink, Permission.EDIT))
                 .hasMessage(Permission.EDIT.deniedMessage());
+    }
+
+    @Test
+    void requireMetadataReturnsDiagramOrThrowsNotFound() {
+        assertThat(access.requireMetadata(diagramId, owner, Permission.EDIT)).isSameAs(diagram);
+
+        UUID missing = UUID.randomUUID();
+        when(repository.findMetadataById(missing)).thenReturn(Optional.empty());
+        assertThatThrownBy(() -> access.requireMetadata(missing, owner, Permission.EDIT))
+                .isInstanceOf(DiagramNotFoundException.class);
+        assertThatThrownBy(() -> access.requireMetadata(null, owner, Permission.EDIT))
+                .isInstanceOf(DiagramNotFoundException.class);
     }
 
     private void assertGranted(Caller caller, Permission... permissions) {
