@@ -2,6 +2,7 @@ package com.diagramio.api.share;
 
 import com.diagramio.api.GlobalExceptionHandler;
 import com.diagramio.config.SecurityConfig;
+import com.diagramio.infrastructure.security.RedisLoginRateLimiter;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.DiagramData;
@@ -44,6 +45,9 @@ class DiagramShareControllerTest {
 
     private static final String USER = "11111111-1111-1111-1111-111111111111";
     private static final Caller OWNER = Caller.user(UUID.fromString(USER));
+
+    @MockitoBean
+    private RedisLoginRateLimiter loginRateLimiter;
 
     @Autowired
     private MockMvc mockMvc;

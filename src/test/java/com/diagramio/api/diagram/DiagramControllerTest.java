@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.diagramio.api.GlobalExceptionHandler;
 import com.diagramio.config.SecurityConfig;
+import com.diagramio.infrastructure.security.RedisLoginRateLimiter;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.Diagram;
@@ -46,6 +47,9 @@ class DiagramControllerTest {
     private static final UUID DIAGRAM_ID = UUID.randomUUID();
     // data gửi lên là object JSON; controller chuyển thành chuỗi gọn trước khi xuống domain
     private static final String SENT_DATA = "{\"nodes\":[],\"edges\":[]}";
+
+    @MockitoBean
+    private RedisLoginRateLimiter loginRateLimiter;
 
     @Autowired
     private MockMvc mockMvc;

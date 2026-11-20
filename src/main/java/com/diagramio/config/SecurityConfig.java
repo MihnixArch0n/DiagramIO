@@ -4,6 +4,9 @@ import com.diagramio.api.dto.ErrorResponse;
 import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtAuthenticationFilter;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
+import com.diagramio.infrastructure.security.LoginRateLimitFilter;
+import com.diagramio.infrastructure.security.RedisLoginRateLimiter;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import com.diagramio.infrastructure.security.ShareTokenAuthenticationFilter;
 import tools.jackson.databind.json.JsonMapper;
 import java.nio.charset.StandardCharsets;
@@ -42,10 +45,16 @@ public class SecurityConfig {
     };
 
     @Bean
+    public RedisLoginRateLimiter loginRateLimiter(StringRedisTemplate redis) {
+        return new RedisLoginRateLimiter(redis);
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtTokenProvider jwtTokenProvider,
                                                    ShareService shareService,
-                                                   JsonMapper jsonMapper)
+                                                   JsonMapper jsonMapper,
+                                                   RedisLoginRateLimiter loginRateLimiter)
             throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -57,6 +66,14 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new LoginRateLimitFilter(loginRateLimiter, (request, response, code, message) -> {
+                    HttpStatus status = HttpStatus.valueOf(code);
+                    response.setStatus(code);
+                    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+                    jsonMapper.writeValue(response.getOutputStream(), new ErrorResponse(Instant.now(), code,
+                            status.getReasonPhrase(), message, request.getRequestURI()));
+                }), JwtAuthenticationFilter.class)
                 .addFilterAfter(new ShareTokenAuthenticationFilter(shareService), JwtAuthenticationFilter.class);
         return http.build();
     }

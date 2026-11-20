@@ -57,6 +57,12 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Sai email hoặc mật khẩu",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "429", description = "At most 5 login requests per IP in 60 seconds",
+            headers = @io.swagger.v3.oas.annotations.headers.Header(name = "Retry-After",
+                    description = "Seconds until the next attempt", schema = @Schema(type = "integer")),
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "503", description = "Login rate limit storage unavailable",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     public TokenResponse login(@Valid @RequestBody LoginRequest request) {
         return TokenResponse.from(authService.login(request.email(), request.password()));
     }

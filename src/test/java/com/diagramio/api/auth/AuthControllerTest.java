@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.diagramio.config.SecurityConfig;
+import com.diagramio.infrastructure.security.RedisLoginRateLimiter;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.auth.AuthService;
@@ -41,6 +42,9 @@ class AuthControllerTest {
     private static final User USER = new User(USER_ID, "minh", "minh@gmail.com", "$2a$10$hash",
             Instant.parse("2026-10-26T10:00:00Z"));
 
+    @MockitoBean
+    private RedisLoginRateLimiter loginRateLimiter;
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -52,6 +56,30 @@ class AuthControllerTest {
 
     @MockitoBean
     private ShareService shareService; // filter X-Share-Token cần; mặc định coi mọi token là không hợp lệ
+
+    @Test
+    void loginQuotaExceededReturns429WithoutCallingAuthService() throws Exception {
+        when(loginRateLimiter.retryAfterSeconds("127.0.0.1")).thenReturn(43L);
+        mockMvc.perform(json(post("/api/v1/auth/login"), "{\"email\":\"uet@gmail.com\",\"password\":\"wrong\"}"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Retry-After", "43"))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.error").value("Too Many Requests"))
+                .andExpect(jsonPath("$.path").value("/api/v1/auth/login"));
+        verify(authService, never()).login(any(), any());
+    }
+
+    @Test
+    void redisUnavailableRejectsLoginWith503WithoutCallingAuthService() throws Exception {
+        when(loginRateLimiter.retryAfterSeconds("127.0.0.1"))
+                .thenThrow(new org.springframework.data.redis.RedisConnectionFailureException("unavailable"));
+        mockMvc.perform(json(post("/api/v1/auth/login"), "{\"email\":\"uet@gmail.com\",\"password\":\"wrong\"}"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.message").value("Login temporarily unavailable"));
+        verify(authService, never()).login(any(), any());
+    }
 
     // ---- register ----
 

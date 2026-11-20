@@ -35,8 +35,23 @@ public abstract class E2eTestBase {
     @ServiceConnection
     public static final PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:18-alpine");
 
+    @ServiceConnection(name = "redis")
+    public static final org.testcontainers.containers.GenericContainer<?> redis =
+            new org.testcontainers.containers.GenericContainer<>("redis:8-alpine").withExposedPorts(6379);
+
     static {
         postgres.start();
+        redis.start();
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
+    @org.junit.jupiter.api.BeforeEach
+    void resetLoginQuota() {
+        redisTemplate.delete("diagramio:ratelimit:login:127.0.0.1");
+        redisTemplate.delete("diagramio:ratelimit:login:0:0:0:0:0:0:0:1");
+        redisTemplate.delete("diagramio:ratelimit:login:::1");
     }
 
     protected static final String API = "/api/v1";

@@ -56,6 +56,23 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
           description: Sai email hoặc mật khẩu
+        "429":
+          description: At most 5 login requests per IP in a rolling 60-second window
+          headers:
+            Retry-After:
+              description: Seconds until the next attempt
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Login rate limit storage unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       security: []
       summary: "Đăng nhập bằng email/mật khẩu, cấp access token và refresh token"
       tags:

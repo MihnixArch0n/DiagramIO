@@ -144,6 +144,21 @@ class AuthE2eTest extends E2eTestBase {
         assertError(r, 400);
     }
 
+    @Test
+    void loginQuotaCannotBeBypassedWithForwardedHeaders() {
+        for (int i = 0; i < 6; i++) {
+            Res response = post(API + "/auth/login")
+                    .header("X-Forwarded-For", "192.0.2." + i)
+                    .header("Forwarded", "for=192.0.2." + i)
+                    .json(obj("email", "missing@e2e.test", "password", PASSWORD)).send();
+            assertError(response, i < 5 ? 401 : 429);
+            if (i == 5) {
+                assertThat(Integer.parseInt(response.header("Retry-After"))).isBetween(1, 60);
+            }
+        }
+        assertStatus(get(API + "/health").send(), 200);
+    }
+
     // ------------------------------------------------------------------ login
 
     @Test

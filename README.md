@@ -1,4 +1,4 @@
-                          # DiagramIO
+# DiagramIO
 
 DiagramIO là backend REST API (JSON) cho một web vẽ sơ đồ UML và ERD trực tuyến: quản lý tài khoản, lưu trữ sơ đồ, lịch sử phiên bản và chia sẻ sơ đồ qua link. Đây là bài tập lớn môn Kiến trúc phần mềm. Dự án đã hoàn thành **Pha 1 (hệ thống baseline)** và đang triển khai **Pha 2 (cải tiến kiến trúc theo các thuộc tính chất lượng)**. Mọi cải tiến đều được đo lường đối chứng Trước/Sau trên cùng môi trường Kaggle CPU.
 
@@ -147,7 +147,7 @@ Chạy app từ IDE hoặc `./gradlew bootRun` khi đang phát triển: Nhờ t�
 | `REDIS_HOST`, `REDIS_PORT` | Redis khi chạy app trên host, mặc định `localhost:6379`; Compose dùng `redis:6379` bên trong mạng Docker |
 | `JWT_SECRET` | Khóa ký JWT, ít nhất 32 ký tự; bắt buộc đổi khi triển khai thật |
 
-Redis hiện được cấu hình làm hạ tầng dùng chung; chưa bật cache hay giới hạn request login. Cổng Redis chỉ được publish trên loopback `127.0.0.1`; không mở Redis trực tiếp ra Internet. Dữ liệu Redis chưa cấu hình persistence và có thể mất khi tạo lại container. Khi triển khai thật, dùng mạng riêng và cấu hình ACL/TLS phù hợp. Kiểm tra kết nối bằng `docker compose exec redis redis-cli ping` (kết quả `PONG`).
+Redis lưu quota cho `POST /api/v1/auth/login`: tối đa 5 request/IP trong bất kỳ 60 giây liên tiếp nào (sliding window), tính cả đăng nhập thành công, thất bại và body không hợp lệ `diagramio:ratelimit:login:<ip>` có TTL 60 giây. Lượt bị chặn không gia hạn cửa sổ, trả `429` với `Retry-After` (giây); Redis không truy cập được thì login trả `503`, không kiểm tra mật khẩu. Các endpoint khác không bị giới hạn. Chưa bật cache.
 
 Thử nhanh bằng `curl`:
 

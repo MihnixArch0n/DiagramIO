@@ -31,8 +31,8 @@ spring:
           - redis
 
 server:
-  # Sau proxy/load balancer: dùng X-Forwarded-Host/Proto để ghép đúng địa chỉ bên ngoài (vd. shareUrl)
-  forward-headers-strategy: framework
+  # Direct access: do not trust client-supplied forwarded headers for the login IP quota.
+  forward-headers-strategy: none
 
 springdoc:
   # Sắp xếp khóa cố định để docs/openapi.yaml xuất lại không bị đổi thứ tự

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.diagramio.config.SecurityConfig;
+import com.diagramio.infrastructure.security.RedisLoginRateLimiter;
 import com.diagramio.domain.DatabaseHealth;
 import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
@@ -23,6 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(HealthController.class)
 @Import(SecurityConfig.class)
 class HealthControllerTest {
+
+    @MockitoBean
+    private RedisLoginRateLimiter loginRateLimiter;
 
     @Autowired
     private MockMvc mockMvc;

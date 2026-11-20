@@ -16,6 +16,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.diagramio.config.SecurityConfig;
+import com.diagramio.infrastructure.security.RedisLoginRateLimiter;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.Diagram;
@@ -49,6 +50,9 @@ class DiagramVersionControllerTest {
 
     private static final DiagramData DATA = DiagramData.fromStorage("{\"nodes\":[{\"id\":\"n1\"}],\"edges\":[]}");
     private static final Instant NOW = Instant.parse("2026-10-24T10:00:00Z");
+
+    @MockitoBean
+    private RedisLoginRateLimiter loginRateLimiter;
 
     @Autowired
     private MockMvc mockMvc;
