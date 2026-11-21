@@ -63,3 +63,21 @@ We adopt the **In-Process CQRS (Command Query Responsibility Segregation)** patt
 ### Risks & Mitigations
 - **Authorization Drift**: Risk of disparate permission logic between command and query paths.
   - *Mitigation*: Both services share the unified `DiagramAccess` domain helper (`require` and `requireMetadata`), guaranteeing identical permission rules across commands and queries.
+
+## Verification & Benchmark Evidence
+
+The In-Process CQRS architecture was evaluated against the monolithic baseline (`595c5b2`) on GitHub Codespaces (4 vCPU, 16 GB RAM) across 3 full k6 load scenarios (10 $\to$ 50 $\to$ 100 VUs) with continuous 5-second Telegraf telemetry:
+
+* **Separation of Concerns with Zero Practical Penalty:**
+  - **Scenario A (80/20 Traffic Split):** Achieved 497.49 req/s (+0.77% vs 493.67 req/s baseline) with $p50$ latency of 29.21 ms and $p95$ of 146.71 ms ($< 300\text{ ms}$ threshold).
+  - **Scenario B1 (100% Query Saturation):** Sustained 903.96 req/s (+0.73% vs 897.45 req/s baseline) with identical median latency (32.94 ms vs 32.96 ms) and 0 errors across 271,266 requests.
+  - **Scenario B2 (Read/Write Contention):** Sustained 927.31 req/s (+1.70% vs 911.80 req/s baseline) under continuous heavy 60KB mutation hammering with 80 Read VUs + 20 Write VUs.
+* **Lean Resource Footprint:**
+  - JVM Old Gen Heap maintained at an average of **56.20 MB** (peak 60.53 MB) vs **53.18 MB** (peak 57.24 MB) baseline, with sub-20ms GC pauses (avg 11.01 ms vs 11.71 ms baseline).
+  - PostgreSQL DB memory reduced by 15.3% (78.72 MB avg vs 92.89 MB avg).
+  - 0 rollbacks, 0 deadlocks across 1.24+ million transactions.
+
+Detailed report: [docs/phase2/cqrs-benchmark-report.md](../phase2/cqrs-benchmark-report.md).
+k6 benchmark scripts & telemetry configs: [benchmarks/cqrs/](../../benchmarks/cqrs/).
+Raw benchmark results & parse scripts (GitHub Gist): [DiagramIO Phase 2 CQRS Benchmark Raw Results & Scripts](https://gist.github.com/MihnixArch0n/ca4adaff80b8c8e49a17b8add9e069b1).
+
