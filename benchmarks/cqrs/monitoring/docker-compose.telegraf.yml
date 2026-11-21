@@ -1,0 +1,16 @@
+services:
+  telegraf:
+    image: docker.io/library/telegraf:alpine
+    container_name: telegraf-loadtest
+    restart: unless-stopped
+    entrypoint: ["telegraf"]
+    network_mode: "host"
+    environment:
+      - HOST_PROC=/host/proc
+      - HOST_SYS=/host/sys
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock:ro
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - ./metrics:/metrics:rw
