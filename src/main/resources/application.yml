@@ -9,6 +9,8 @@ spring:
     url: jdbc:postgresql://localhost:5432/diagram_app
     username: root
     password: secretpassword
+    hikari:
+      pool-name: DiagramIOPool
   jpa:
     open-in-view: false
     hibernate:
@@ -38,4 +40,25 @@ jwt:
 diagramio:
   storage:
     blob-dir: ${DIAGRAMIO_STORAGE_PATH:data/blobs}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 

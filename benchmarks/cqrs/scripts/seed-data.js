@@ -7,13 +7,13 @@ export const options = {
 };
 
 const BASE_URL = __ENV.TARGET_URL || 'http://localhost:8080';
+const TARGET_DIAGRAM_COUNT = parseInt(__ENV.TARGET_COUNT || '150', 10);
 
 // Generate valid nodes and edges payload reaching the target size in bytes
 function generateDiagramPayload(targetBytes) {
   const nodes = [];
   const edges = [];
 
-  // Realistic entity metadata padding for each node
   const attrSample = [
     "id: UUID PRIMARY_KEY NOT_NULL",
     "createdAt: TIMESTAMP_WITH_TIME_ZONE",
@@ -30,7 +30,6 @@ function generateDiagramPayload(targetBytes) {
     "verifyOptimisticLock(expectedVersion: Int): Void"
   ];
 
-  // Each node with detailed data and connected edge occupies ~820 bytes
   const bytesPerNode = 820;
   let nodeCount = Math.max(5, Math.floor(targetBytes / bytesPerNode));
 
@@ -43,7 +42,7 @@ function generateDiagramPayload(targetBytes) {
       data: {
         attributes: attrSample,
         methods: methodSample,
-        description: `This is a heavy benchmark entity node index ${i} designed to simulate realistic diagram graph storage footprint.`
+        description: `This is a benchmark entity node index ${i} designed to simulate realistic diagram graph storage footprint.`
       }
     });
 
@@ -60,7 +59,6 @@ function generateDiagramPayload(targetBytes) {
   let payload = { nodes, edges };
   let jsonStr = JSON.stringify(payload);
 
-  // Ensure payload strictly does not exceed system ceiling of 2MB (2,097,152 bytes)
   const maxBytes = 2 * 1024 * 1024;
   while (jsonStr.length > maxBytes - 20000 && nodes.length > 5) {
     nodes.pop();
@@ -73,21 +71,20 @@ function generateDiagramPayload(targetBytes) {
 }
 
 export default function () {
-  console.log(`Connecting to ${BASE_URL} to seed benchmark diagrams...`);
+  console.log(`Connecting to ${BASE_URL} to seed CQRS benchmark data...`);
 
-  // 1. Authenticate and retrieve bearer token
+  // 1. Authenticate
+  let token = null;
   const loginRes = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
     email: 'uet@gmail.com',
     password: 'uet123456',
   }), { headers: { 'Content-Type': 'application/json' } });
 
-  let token = null;
   if (loginRes.status === 200) {
     token = loginRes.json('accessToken');
   }
 
   if (!token) {
-    // Attempt registration if benchmark account does not exist
     const registerRes = http.post(`${BASE_URL}/api/v1/auth/register`, JSON.stringify({
       username: 'benchmarker',
       email: 'benchmarker@example.com',
@@ -97,11 +94,11 @@ export default function () {
     if (registerRes.status === 201) {
       token = registerRes.json('accessToken');
     } else {
-      const loginRes3 = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
+      const loginRes2 = http.post(`${BASE_URL}/api/v1/auth/login`, JSON.stringify({
         email: 'benchmarker@example.com',
         password: 'Password123!',
       }), { headers: { 'Content-Type': 'application/json' } });
-      token = loginRes3.json('accessToken');
+      token = loginRes2.json('accessToken');
     }
   }
 
@@ -120,33 +117,34 @@ export default function () {
   const existingTotal = listRes.json('totalElements') || 0;
   console.log(`Existing diagrams in account: ${existingTotal}`);
 
-  if (existingTotal >= 50) {
-    console.log('Already have >= 50 diagrams. Skipping creation.');
+  if (existingTotal >= TARGET_DIAGRAM_COUNT) {
+    console.log(`Already have ${existingTotal} diagrams (>= ${TARGET_DIAGRAM_COUNT}). Skipping creation.`);
     return;
   }
 
-  const toCreate = 50 - existingTotal;
-  console.log(`Generating ${toCreate} diagrams with realistic heavy payloads...`);
+  const toCreate = TARGET_DIAGRAM_COUNT - existingTotal;
+  console.log(`Generating ${toCreate} diagrams (target: ${TARGET_DIAGRAM_COUNT}) with realistic payloads...`);
 
-  // Size distribution: 10 light (~50KB), 25 medium (~500KB), 15 heavy (~1.75MB)
   for (let i = 0; i < toCreate; i++) {
+    const globalIdx = existingTotal + i;
+    // Size distribution: 70% light (50KB), 20% medium (300KB), 10% heavy (1MB)
     let targetBytes = 50 * 1024;
     let sizeLabel = "Light (50KB)";
-    if (i < 10) {
+    if (i % 10 < 7) {
       targetBytes = 50 * 1024;
       sizeLabel = "Light (50KB)";
-    } else if (i < 35) {
-      targetBytes = 500 * 1024;
-      sizeLabel = "Medium (500KB)";
+    } else if (i % 10 < 9) {
+      targetBytes = 300 * 1024;
+      sizeLabel = "Medium (300KB)";
     } else {
-      targetBytes = 1750 * 1024; // 1.75MB (approaching 2MB ceiling)
-      sizeLabel = "Heavy (1.75MB)";
+      targetBytes = 1000 * 1024;
+      sizeLabel = "Heavy (1MB)";
     }
 
-    const titleKeywords = ["Architecture Diagram", "Microservice Flow", "Database ERD", "Domain Model", "Core System"];
-    const keyword = titleKeywords[i % titleKeywords.length];
-    const title = `${keyword} ${i + 1} - ${sizeLabel}`;
-    const diagramType = i % 2 === 0 ? "UML" : "ERD";
+    const titleKeywords = ["Architecture Diagram", "Microservice Flow", "Database ERD", "Domain Model", "Core System", "Event Broker Topology"];
+    const keyword = titleKeywords[globalIdx % titleKeywords.length];
+    const title = `${keyword} ${globalIdx + 1} - ${sizeLabel}`;
+    const diagramType = globalIdx % 2 === 0 ? "UML" : "ERD";
 
     // Step A: Create diagram shell
     const createRes = http.post(`${BASE_URL}/api/v1/diagrams`, JSON.stringify({
@@ -155,21 +153,21 @@ export default function () {
     }), { headers: authHeaders });
 
     if (createRes.status !== 201) {
-      console.error(`Failed to create diagram ${i}: ${createRes.body}`);
+      console.error(`Failed to create diagram ${globalIdx}: ${createRes.body}`);
       continue;
     }
 
     const diagramId = createRes.json('id');
     const version = createRes.json('version');
 
-    // Step B: Update with heavy JSON payload
+    // Step B: Update with realistic JSON payload
     const payload = generateDiagramPayload(targetBytes);
     const updateRes = http.put(`${BASE_URL}/api/v1/diagrams/${diagramId}`, JSON.stringify({
       title: title,
       diagramType: diagramType,
       version: version,
       data: payload,
-      isPublic: i % 5 === 0 // 20% public diagrams
+      isPublic: globalIdx % 5 === 0 // 20% public
     }), { headers: authHeaders });
 
     if (updateRes.status !== 200) {
@@ -177,8 +175,8 @@ export default function () {
       continue;
     }
 
-    // Step C: For heavy diagrams, create 1-2 snapshot versions to populate TOAST table
-    if (targetBytes >= 500 * 1024) {
+    // Step C: For some diagrams, add a snapshot version
+    if (globalIdx % 5 === 0) {
       const updatedVersion = updateRes.json('version');
       http.post(`${BASE_URL}/api/v1/diagrams/${diagramId}/versions`, JSON.stringify({
         note: `Initial Snapshot v1 for ${title}`,
@@ -186,10 +184,10 @@ export default function () {
       }), { headers: authHeaders });
     }
 
-    if ((i + 1) % 5 === 0 || i === toCreate - 1) {
-      console.log(`Seeded ${i + 1}/${toCreate} diagrams (${sizeLabel})...`);
+    if ((i + 1) % 15 === 0 || i === toCreate - 1) {
+      console.log(`Seeded ${i + 1}/${toCreate} diagrams...`);
     }
   }
 
-  console.log('Seeding completed successfully!');
+  console.log('CQRS benchmark data seeding completed successfully!');
 }
