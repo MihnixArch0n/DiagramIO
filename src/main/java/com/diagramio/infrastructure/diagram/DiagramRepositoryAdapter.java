@@ -1,5 +1,6 @@
 package com.diagramio.infrastructure.diagram;
 
+import com.diagramio.domain.diagram.DiagramReadCache;
 import com.diagramio.domain.diagram.BlobStoragePort;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
@@ -27,14 +28,17 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     private final DiagramJpaRepository repository;
     private final DiagramMapper mapper;
     private final BlobStoragePort blobStorage;
+    private final DiagramReadCache diagramReadCache;
 
     public DiagramRepositoryAdapter(
             DiagramJpaRepository repository,
             DiagramMapper mapper,
-            BlobStoragePort blobStorage) {
+            BlobStoragePort blobStorage,
+            DiagramReadCache diagramReadCache) {
         this.repository = repository;
         this.mapper = mapper;
         this.blobStorage = blobStorage;
+        this.diagramReadCache = diagramReadCache;
     }
 
     /**
@@ -80,9 +84,14 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
         DiagramEntity entity = mapper.toEntity(diagram, storageKey);
         try {
             DiagramEntity saved = repository.saveAndFlush(entity);
+
+// Invalidate cache sau khi DB ghi thành công
+            scheduleCacheInvalidation(id);
+
             if (oldStorageKey != null && !oldStorageKey.equals(storageKey)) {
                 scheduleOldBlobDeletion(oldStorageKey);
             }
+
             registerRollbackBlobCleanup(storageKey);
             return mapper.toDomain(saved, dataJson);
         } catch (OptimisticLockingFailureException _) {
@@ -95,6 +104,21 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
                 throw re;
             }
             throw new RuntimeException(ex);
+        }
+    }
+
+    private void scheduleCacheInvalidation(UUID diagramId) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            diagramReadCache.invalidateDiagram(diagramId);
+                        }
+                    }
+            );
+        } else {
+            diagramReadCache.invalidateDiagram(diagramId);
         }
     }
 
@@ -176,10 +200,32 @@ public class DiagramRepositoryAdapter implements DiagramRepository {
     @Override
     public void deleteById(UUID id) {
         repository.deleteById(id);
+
+        scheduleCacheInvalidation(id);
+
+        scheduleBlobPrefixDeletion("diagrams/" + id);
+    }
+
+    private void scheduleBlobPrefixDeletion(String prefix) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            deleteBlobPrefix(prefix);
+                        }
+                    }
+            );
+        } else {
+            deleteBlobPrefix(prefix);
+        }
+    }
+
+    private void deleteBlobPrefix(String prefix) {
         try {
-            blobStorage.deleteAllPrefix("diagrams/" + id);
+            blobStorage.deleteAllPrefix(prefix);
         } catch (Exception ex) {
-            log.warn("Failed to delete blob prefix for diagram {}: {}", id, ex.getMessage());
+            log.warn("Failed to delete blob prefix {}: {}", prefix, ex.getMessage());
         }
     }
 

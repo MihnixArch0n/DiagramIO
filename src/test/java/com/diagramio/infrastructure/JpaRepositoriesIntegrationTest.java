@@ -1,5 +1,7 @@
 package com.diagramio.infrastructure;
 
+import com.diagramio.domain.diagram.DiagramReadCache;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -46,6 +48,9 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
         DiagramShareRepositoryAdapter.class, DiagramShareMapper.class, StorageConfig.class,
         TransactionTemplateRunner.class})
 class JpaRepositoriesIntegrationTest {
+
+    @MockitoBean
+    private DiagramReadCache diagramReadCache;
 
     @ServiceConnection
     static final PostgreSQLContainer postgres = E2eTestBase.postgres;
@@ -94,6 +99,7 @@ class JpaRepositoriesIntegrationTest {
     }
 
     @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void claimCheckPurgesBlobsWhenDiagramIsDeleted() {
         Diagram diagram = newDiagram();
         var entity = diagramJpaRepository.findById(diagram.getId()).orElseThrow();
