@@ -18,14 +18,17 @@ import com.diagramio.config.SecurityConfig;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
 import com.diagramio.domain.diagram.Diagram;
+import com.diagramio.domain.diagram.DiagramCommandService;
 import com.diagramio.domain.diagram.DiagramData;
-import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramQueryService;
+import com.diagramio.domain.diagram.DiagramSummary;
 import com.diagramio.domain.diagram.DiagramType;
 import com.diagramio.domain.exception.DiagramNotFoundException;
 import com.diagramio.domain.exception.ForbiddenException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
 import com.diagramio.domain.share.ShareService;
 import com.diagramio.infrastructure.security.JwtTokenProvider;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -42,24 +45,27 @@ class DiagramControllerTest {
 
     private static final UUID USER_ID = UUID.randomUUID();
     private static final UUID DIAGRAM_ID = UUID.randomUUID();
-    // data gửi lên là object JSON; controller chuyển thành chuỗi gọn trước khi xuống domain
+    // Data sent in request is a JSON object; controller converts to a compact string before domain
     private static final String SENT_DATA = "{\"nodes\":[],\"edges\":[]}";
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private DiagramService diagramService;
+    private DiagramCommandService diagramCommandService;
 
     @MockitoBean
-    private JwtTokenProvider jwtTokenProvider; // SecurityConfig cần; mặc định coi mọi token là không hợp lệ
+    private DiagramQueryService diagramQueryService;
 
     @MockitoBean
-    private ShareService shareService; // filter X-Share-Token cần; mặc định coi mọi token là không hợp lệ
+    private JwtTokenProvider jwtTokenProvider; // Required by SecurityConfig; defaults to invalid token
+
+    @MockitoBean
+    private ShareService shareService; // Required by X-Share-Token filter; defaults to invalid token
 
     @Test
     void createReturns201ForValidRequest() throws Exception {
-        when(diagramService.createDiagram(any(Diagram.class))).thenReturn(diagram());
+        when(diagramCommandService.createDiagram(eq(USER_ID), eq("Orders"), eq(DiagramType.ERD))).thenReturn(diagram());
 
         mockMvc.perform(post("/api/v1/diagrams")
                         .with(user(USER_ID.toString()))
@@ -84,7 +90,7 @@ class DiagramControllerTest {
 
     @Test
     void updateReturns200ForValidRequest() throws Exception {
-        when(diagramService.updateDiagram(eq(DIAGRAM_ID), eq("Orders"), eq(DiagramType.ERD),
+        when(diagramCommandService.updateDiagram(eq(DIAGRAM_ID), eq("Orders"), eq(DiagramType.ERD),
                 eq(DiagramData.fromStorage(SENT_DATA)), eq(false), eq(Caller.user(USER_ID)), eq(1)))
                 .thenReturn(diagram());
 
@@ -101,7 +107,7 @@ class DiagramControllerTest {
 
     @Test
     void updateReturns409ForVersionConflict() throws Exception {
-        when(diagramService.updateDiagram(eq(DIAGRAM_ID), eq("Orders"), eq(DiagramType.ERD),
+        when(diagramCommandService.updateDiagram(eq(DIAGRAM_ID), eq("Orders"), eq(DiagramType.ERD),
                 eq(DiagramData.fromStorage(SENT_DATA)), eq(false), eq(Caller.user(USER_ID)), eq(1)))
                 .thenThrow(new OptimisticLockConflictException(DIAGRAM_ID, 1, 2));
 
@@ -120,7 +126,7 @@ class DiagramControllerTest {
     @Test
     void deleteReturns403ForNonOwner() throws Exception {
         doThrow(new ForbiddenException("Only the diagram owner can delete it"))
-                .when(diagramService).deleteDiagram(DIAGRAM_ID, Caller.user(USER_ID));
+                .when(diagramCommandService).deleteDiagram(DIAGRAM_ID, Caller.user(USER_ID));
 
         mockMvc.perform(delete("/api/v1/diagrams/{id}", DIAGRAM_ID)
                         .with(user(USER_ID.toString())))
@@ -129,7 +135,7 @@ class DiagramControllerTest {
 
     @Test
     void getReturns404WhenDiagramDoesNotExist() throws Exception {
-        when(diagramService.getDiagramById(DIAGRAM_ID, Caller.anonymous()))
+        when(diagramQueryService.getDiagramById(DIAGRAM_ID, Caller.anonymous()))
                 .thenThrow(new DiagramNotFoundException("Diagram not found: " + DIAGRAM_ID));
 
         mockMvc.perform(get("/api/v1/diagrams/{id}", DIAGRAM_ID))
@@ -140,7 +146,7 @@ class DiagramControllerTest {
     void updateWithEditShareTokenPassesShareCallerWithoutLogin() throws Exception {
         Caller editor = Caller.shareToken(DIAGRAM_ID, ShareRole.EDIT);
         when(shareService.resolveShareToken("edit-token")).thenReturn(Optional.of(editor));
-        when(diagramService.updateDiagram(eq(DIAGRAM_ID), eq("Orders"), eq(DiagramType.ERD),
+        when(diagramCommandService.updateDiagram(eq(DIAGRAM_ID), eq("Orders"), eq(DiagramType.ERD),
                 eq(DiagramData.fromStorage(SENT_DATA)), eq(false), eq(editor), eq(1)))
                 .thenReturn(diagram());
 
@@ -171,7 +177,7 @@ class DiagramControllerTest {
         Caller editor = Caller.shareToken(DIAGRAM_ID, ShareRole.EDIT);
         when(shareService.resolveShareToken("edit-token")).thenReturn(Optional.of(editor));
         doThrow(new ForbiddenException("Only the diagram owner can delete it"))
-                .when(diagramService).deleteDiagram(DIAGRAM_ID, editor);
+                .when(diagramCommandService).deleteDiagram(DIAGRAM_ID, editor);
 
         mockMvc.perform(delete("/api/v1/diagrams/{id}", DIAGRAM_ID)
                         .header("X-Share-Token", "edit-token"))
@@ -180,12 +186,43 @@ class DiagramControllerTest {
 
     @Test
     void responseDataIsJsonObject() throws Exception {
-        when(diagramService.getDiagramById(DIAGRAM_ID, Caller.anonymous())).thenReturn(diagram());
+        when(diagramQueryService.getDiagramById(DIAGRAM_ID, Caller.anonymous())).thenReturn(diagram());
 
         mockMvc.perform(get("/api/v1/diagrams/{id}", DIAGRAM_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.nodes").isArray())
                 .andExpect(jsonPath("$.data.edges").isArray());
+    }
+
+    @Test
+    void getMyDiagramsReturnsSummaryList() throws Exception {
+        DiagramSummary summary = new DiagramSummary(DIAGRAM_ID, "Orders", DiagramType.ERD, 1,
+                false, USER_ID, USER_ID, null, null);
+        when(diagramQueryService.getDiagramSummariesByOwner(eq(USER_ID), any(), any(), eq(0), eq(20)))
+                .thenReturn(List.of(summary));
+        when(diagramQueryService.countDiagramsByOwner(eq(USER_ID), any(), any())).thenReturn(1L);
+
+        mockMvc.perform(get("/api/v1/diagrams")
+                        .with(user(USER_ID.toString())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(DIAGRAM_ID.toString()))
+                .andExpect(jsonPath("$.content[0].title").value("Orders"))
+                .andExpect(jsonPath("$.content[0].data").doesNotExist());
+    }
+
+    @Test
+    void getPublicDiagramsReturnsSummaryList() throws Exception {
+        DiagramSummary summary = new DiagramSummary(DIAGRAM_ID, "Public Diagram", DiagramType.UML, 1,
+                true, USER_ID, USER_ID, null, null);
+        when(diagramQueryService.getPublicDiagramSummaries(eq(0), eq(20)))
+                .thenReturn(List.of(summary));
+        when(diagramQueryService.countPublicDiagrams()).thenReturn(1L);
+
+        mockMvc.perform(get("/api/v1/diagrams/public"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(DIAGRAM_ID.toString()))
+                .andExpect(jsonPath("$.content[0].title").value("Public Diagram"))
+                .andExpect(jsonPath("$.content[0].data").doesNotExist());
     }
 
     private Diagram diagram() {

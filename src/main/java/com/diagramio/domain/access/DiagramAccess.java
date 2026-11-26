@@ -8,12 +8,12 @@ import com.diagramio.domain.exception.UnauthorizedException;
 import java.util.UUID;
 
 /**
- * Một chỗ duy nhất trả lời "sơ đồ có tồn tại không và người gọi có quyền không" cho mọi module,
- * để sơ đồ, phiên bản và chia sẻ trả cùng mã lỗi:
+ * Single authority checking "does diagram exist and does caller have permission" across all modules,
+ * so diagrams, versions, and shares return consistent error responses:
  * <ul>
- *   <li>không có sơ đồ: 404;</li>
- *   <li>bị từ chối và người gọi không có tài khoản lẫn link của sơ đồ này: 401 (đăng nhập có thể đổi kết quả);</li>
- *   <li>bị từ chối khi đã biết người gọi (có tài khoản, hoặc link view mà đòi sửa): 403.</li>
+ *   <li>Missing diagram: 404;</li>
+ *   <li>Denied when caller has neither an account nor a share link to this diagram: 401;</li>
+ *   <li>Denied when caller is recognized (has account, or view-only link trying to edit): 403.</li>
  * </ul>
  */
 public class DiagramAccess {
@@ -24,7 +24,7 @@ public class DiagramAccess {
         this.diagramRepository = diagramRepository;
     }
 
-    /** Đọc sơ đồ và kiểm tra quyền; trả về sơ đồ nếu được phép. */
+    /** Loads diagram with full payload data and checks permission; returns diagram if permitted. */
     public Diagram require(UUID diagramId, Caller caller, Permission permission) {
         if (diagramId == null) {
             throw new DiagramNotFoundException("Diagram not found");
@@ -35,7 +35,18 @@ public class DiagramAccess {
         return diagram;
     }
 
-    /** Kiểm tra quyền trên sơ đồ đã đọc sẵn. */
+    /** Loads diagram metadata only (without blob storage payload) and checks permission; used for update and delete commands. */
+    public Diagram requireMetadata(UUID diagramId, Caller caller, Permission permission) {
+        if (diagramId == null) {
+            throw new DiagramNotFoundException("Diagram not found");
+        }
+        Diagram diagram = diagramRepository.findMetadataById(diagramId)
+                .orElseThrow(() -> new DiagramNotFoundException("Diagram not found: " + diagramId));
+        check(diagram, caller, permission);
+        return diagram;
+    }
+
+    /** Checks permission against an already loaded diagram. */
     public void check(Diagram diagram, Caller caller, Permission permission) {
         if (permission.isGrantedTo(caller, diagram)) {
             return;

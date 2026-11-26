@@ -1,5 +1,6 @@
 # 1. Dữ liệu Docker & Database (Tuyệt đối không commit lên Git)
 postgres_data/
+data/
 *.sqlite
 *.db
 
@@ -38,3 +39,7 @@ private/
 src/main/java/com/diagramio/cli/
 src/main/java/com/diagramio/config/UatHeaderAuthenticationFilter.java
 src/main/resources/db/migration/V3__add_diagram_updated_by.sql
+
+benchmarks/*/results/
+benchmarks/*/scripts/parse-telegraf.py
+benchmarks/*/monitoring/metrics/

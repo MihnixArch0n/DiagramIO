@@ -1,7 +1,8 @@
 package com.diagramio.config;
 
+import com.diagramio.domain.diagram.DiagramCommandService;
+import com.diagramio.domain.diagram.DiagramQueryService;
 import com.diagramio.domain.diagram.DiagramRepository;
-import com.diagramio.domain.diagram.DiagramService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -9,7 +10,12 @@ import org.springframework.context.annotation.Configuration;
 public class DiagramConfig {
 
     @Bean
-    public DiagramService diagramService(DiagramRepository diagramRepository) {
-        return new DiagramService(diagramRepository);
+    public DiagramCommandService diagramCommandService(DiagramRepository diagramRepository) {
+        return new DiagramCommandService(diagramRepository);
+    }
+
+    @Bean
+    public DiagramQueryService diagramQueryService(DiagramRepository diagramRepository) {
+        return new DiagramQueryService(diagramRepository);
     }
 }

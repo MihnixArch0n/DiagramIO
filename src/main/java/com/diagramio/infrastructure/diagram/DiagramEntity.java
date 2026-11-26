@@ -9,7 +9,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.UUID;
-
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -19,6 +18,7 @@ public class DiagramEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "title")
@@ -30,6 +30,9 @@ public class DiagramEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "data", columnDefinition = "jsonb")
     private String data;
+
+    @Column(name = "storage_key")
+    private String storageKey;
 
     @Version
     private Integer version;
@@ -79,6 +82,14 @@ public class DiagramEntity {
 
     public void setData(String data) {
         this.data = data;
+    }
+
+    public String getStorageKey() {
+        return storageKey;
+    }
+
+    public void setStorageKey(String storageKey) {
+        this.storageKey = storageKey;
     }
 
     public Integer getVersion() {

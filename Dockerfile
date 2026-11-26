@@ -17,8 +17,10 @@ RUN ./gradlew bootJar -x test --no-daemon
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
-# Không chạy app bằng root
-RUN addgroup -S app && adduser -S app -G app
+# Không chạy app bằng root; tạo sẵn thư mục lưu trữ blob và cấp quyền
+RUN addgroup -S app && adduser -S app -G app \
+    && mkdir -p /app/data/blobs \
+    && chown -R app:app /app/data
 USER app
 
 COPY --from=build /app/build/libs/*.jar app.jar

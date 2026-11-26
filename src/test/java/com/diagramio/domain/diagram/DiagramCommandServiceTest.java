@@ -12,12 +12,11 @@ import static org.mockito.Mockito.when;
 
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.access.ShareRole;
-import com.diagramio.domain.diagram.DiagramData;
-import com.diagramio.domain.diagram.DiagramType;
+import com.diagramio.domain.exception.DiagramNotFoundException;
 import com.diagramio.domain.exception.ForbiddenException;
 import com.diagramio.domain.exception.InvalidInputException;
 import com.diagramio.domain.exception.OptimisticLockConflictException;
-import com.diagramio.domain.exception.UnauthorizedException;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,47 +25,53 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class DiagramServiceTest {
+class DiagramCommandServiceTest {
 
     @Mock
     private DiagramRepository repository;
 
-    private DiagramService service;
+    private DiagramCommandService service;
 
     @BeforeEach
     void setUp() {
-        service = new DiagramService(repository);
+        service = new DiagramCommandService(repository);
     }
 
     @Test
     void createDiagramUsesDefaultDataAndPrivateVisibility() {
         when(repository.save(any(Diagram.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        Diagram diagram = new Diagram();
-        diagram.setTitle("Orders");
-        diagram.setDiagramType(DiagramType.ERD);
-        diagram.setData(null);
-        diagram.setPublic(true);
+        UUID ownerId = UUID.randomUUID();
 
-        Diagram created = service.createDiagram(diagram);
+        Diagram created = service.createDiagram(ownerId, "  Orders  ", DiagramType.ERD);
 
+        assertEquals("Orders", created.getTitle());
+        assertEquals(ownerId, created.getOwnerId());
         assertEquals(DiagramData.EMPTY, created.getData());
         assertFalse(created.isPublic());
         assertEquals(1, created.getVersion());
-        verify(repository).save(diagram);
+        verify(repository).save(any(Diagram.class));
+    }
+
+    @Test
+    void createDiagramRequiresOwnerTitleAndType() {
+        UUID ownerId = UUID.randomUUID();
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(null, "Orders", DiagramType.ERD));
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(ownerId, null, DiagramType.ERD));
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(ownerId, "   ", DiagramType.ERD));
+        assertThrows(InvalidInputException.class, () -> service.createDiagram(ownerId, "Orders", null));
     }
 
     @Test
     void updateDiagramSavesWithCheckedVersionWhenRequestVersionMatches() {
         UUID id = UUID.randomUUID();
         Diagram current = diagram(id, 3);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(current));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
         when(repository.save(any(Diagram.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Diagram updated = service.updateDiagram(
                 id, "Updated", DiagramType.UML, DiagramData.fromStorage("{\"nodes\": [], \"edges\": []}"), false,
                 Caller.user(current.getOwnerId()), 3);
 
-        // Domain giữ nguyên version đã đối chiếu; @Version ở tầng persistence tăng lên 4 khi ghi
         assertEquals(3, updated.getVersion());
         assertEquals("Updated", updated.getTitle());
         verify(repository).save(current);
@@ -76,7 +81,7 @@ class DiagramServiceTest {
     void updateDiagramRejectsStaleVersion() {
         UUID id = UUID.randomUUID();
         Diagram current = diagram(id, 3);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(current));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
 
         assertThrows(OptimisticLockConflictException.class, () -> service.updateDiagram(
                 id, "Updated", DiagramType.UML, DiagramData.fromStorage("{\"nodes\": [], \"edges\": []}"), false,
@@ -85,37 +90,21 @@ class DiagramServiceTest {
         verify(repository, never()).save(any(Diagram.class));
     }
 
-    // ---- cấu trúc data ----
-
-    // Luật cấu trúc data (nodes/edges, 2 MB) nằm trong DiagramData, xem DiagramDataTest.
     @Test
     void updateDiagramRequiresData() {
         UUID id = UUID.randomUUID();
         Diagram current = diagram(id, 1);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(current));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
 
         assertThrows(InvalidInputException.class, () -> service.updateDiagram(
                 id, "Orders", DiagramType.ERD, null, false, Caller.user(current.getOwnerId()), 1));
         verify(repository, never()).save(any(Diagram.class));
     }
 
-    // ---- phân trang ----
-
-    @Test
-    void pageSizeIsLimited() {
-        UUID ownerId = UUID.randomUUID();
-        assertThrows(InvalidInputException.class,
-                () -> service.getDiagramsByOwner(ownerId, null, null, 0, DiagramService.MAX_PAGE_SIZE + 1));
-        assertThrows(InvalidInputException.class, () -> service.getPublicDiagrams(0, 0));
-        assertThrows(InvalidInputException.class, () -> service.getPublicDiagrams(-1, 20));
-    }
-
-    // ---- phân quyền sửa ----
-
     @Test
     void updateDiagramRejectsStranger() {
         UUID id = UUID.randomUUID();
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram(id, 1)));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(diagram(id, 1)));
 
         assertThrows(ForbiddenException.class, () -> service.updateDiagram(
                 id, "Hacked", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(UUID.randomUUID()), 1));
@@ -126,7 +115,7 @@ class DiagramServiceTest {
     @Test
     void updateDiagramRejectsViewShareToken() {
         UUID id = UUID.randomUUID();
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram(id, 1)));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(diagram(id, 1)));
 
         assertThrows(ForbiddenException.class, () -> service.updateDiagram(
                 id, "Updated", DiagramType.ERD, DiagramData.EMPTY, false,
@@ -138,22 +127,22 @@ class DiagramServiceTest {
     @Test
     void editShareTokenCanUpdateButCannotChangeVisibility() {
         UUID id = UUID.randomUUID();
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram(id, 1)));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(diagram(id, 1)));
         when(repository.save(any(Diagram.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Diagram updated = service.updateDiagram(id, "Updated", DiagramType.ERD, DiagramData.EMPTY, true,
                 Caller.shareToken(id, ShareRole.EDIT), 1);
 
         assertEquals("Updated", updated.getTitle());
-        assertFalse(updated.isPublic());       // chỉ owner được công khai sơ đồ
-        assertNull(updated.getUpdatedBy());    // sửa qua link, không đăng nhập
+        assertFalse(updated.isPublic());
+        assertNull(updated.getUpdatedBy());
     }
 
     @Test
     void loggedInEditorIsRecordedAsUpdatedBy() {
         UUID id = UUID.randomUUID();
         UUID editorId = UUID.randomUUID();
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram(id, 1)));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(diagram(id, 1)));
         when(repository.save(any(Diagram.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Diagram updated = service.updateDiagram(id, "Updated", DiagramType.ERD, DiagramData.EMPTY, false,
@@ -166,7 +155,7 @@ class DiagramServiceTest {
     void ownerCanMakeDiagramPublic() {
         UUID id = UUID.randomUUID();
         Diagram current = diagram(id, 1);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(current));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
         when(repository.save(any(Diagram.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Diagram updated = service.updateDiagram(id, "Orders", DiagramType.ERD, DiagramData.EMPTY, true,
@@ -176,39 +165,14 @@ class DiagramServiceTest {
         assertEquals(current.getOwnerId(), updated.getUpdatedBy());
     }
 
-    // ---- phân quyền xem ----
-
-    @Test
-    void getDiagramByIdRejectsAnonymousForPrivateDiagramWith401() {
-        UUID id = UUID.randomUUID();
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram(id, 1)));
-
-        // Khách (không tài khoản, không link): đăng nhập có thể đổi kết quả nên là 401, không phải 403
-        assertThrows(UnauthorizedException.class,
-                () -> service.getDiagramById(id, Caller.anonymous()));
-    }
-
-    @Test
-    void getDiagramByIdAllowsViewShareTokenAndPublicDiagram() {
-        UUID id = UUID.randomUUID();
-        Diagram diagram = diagram(id, 1);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram));
-
-        assertEquals(diagram, service.getDiagramById(id, Caller.shareToken(id, ShareRole.VIEW)));
-
-        diagram.setPublic(true);
-        assertEquals(diagram, service.getDiagramById(id, Caller.anonymous()));
-    }
-
     @Test
     void deleteDiagramRejectsNonOwner() {
         UUID id = UUID.randomUUID();
         Diagram diagram = diagram(id, 1);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(diagram));
 
         assertThrows(ForbiddenException.class,
                 () -> service.deleteDiagram(id, Caller.user(UUID.randomUUID())));
-        // link edit được sửa nhưng không được xóa
         assertThrows(ForbiddenException.class,
                 () -> service.deleteDiagram(id, Caller.shareToken(id, ShareRole.EDIT)));
 
@@ -216,10 +180,58 @@ class DiagramServiceTest {
     }
 
     @Test
+    void updateDiagramRequiresId() {
+        assertThrows(InvalidInputException.class, () -> service.updateDiagram(
+                null, "Orders", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(UUID.randomUUID()), 1));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void updateDiagramRequiresRequestVersion() {
+        UUID id = UUID.randomUUID();
+        Diagram current = diagram(id, 1);
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
+
+        assertThrows(OptimisticLockConflictException.class, () -> service.updateDiagram(
+                id, "Orders", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(current.getOwnerId()), null));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void updateDiagramRequiresType() {
+        UUID id = UUID.randomUUID();
+        Diagram current = diagram(id, 1);
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(current));
+
+        assertThrows(InvalidInputException.class, () -> service.updateDiagram(
+                id, "Orders", null, DiagramData.EMPTY, false, Caller.user(current.getOwnerId()), 1));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void updateDiagramNonExistentThrowsDiagramNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(repository.findMetadataById(id)).thenReturn(Optional.empty());
+
+        assertThrows(DiagramNotFoundException.class, () -> service.updateDiagram(
+                id, "Orders", DiagramType.ERD, DiagramData.EMPTY, false, Caller.user(UUID.randomUUID()), 1));
+        verify(repository, never()).save(any(Diagram.class));
+    }
+
+    @Test
+    void deleteDiagramNonExistentThrowsDiagramNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(repository.findMetadataById(id)).thenReturn(Optional.empty());
+
+        assertThrows(DiagramNotFoundException.class, () -> service.deleteDiagram(id, Caller.user(UUID.randomUUID())));
+        verify(repository, never()).deleteById(any(UUID.class));
+    }
+
+    @Test
     void ownerCanDeleteDiagram() {
         UUID id = UUID.randomUUID();
         Diagram diagram = diagram(id, 1);
-        when(repository.findById(id)).thenReturn(java.util.Optional.of(diagram));
+        when(repository.findMetadataById(id)).thenReturn(Optional.of(diagram));
 
         service.deleteDiagram(id, Caller.user(diagram.getOwnerId()));
 

@@ -1,3 +1,4 @@
+
 spring:
   application:
     name: diagramio
@@ -5,14 +6,16 @@ spring:
     virtual:
       enabled: true
   datasource:
-    # Mặc định khớp docker-compose.yml; ghi đè bằng biến môi trường SPRING_DATASOURCE_*
+    # Default PostgreSQL configuration
     url: jdbc:postgresql://localhost:5432/diagram_app
     username: root
     password: secretpassword
+    hikari:
+      pool-name: DiagramIOPool
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate # Schema do Flyway quản lý, Hibernate chỉ kiểm tra
+      ddl-auto: validate
   flyway:
     enabled: true
   docker:
@@ -21,11 +24,9 @@ spring:
         arguments: "postgres"
 
 server:
-  # Sau proxy/load balancer: dùng X-Forwarded-Host/Proto để ghép đúng địa chỉ bên ngoài (vd. shareUrl)
   forward-headers-strategy: framework
 
 springdoc:
-  # Sắp xếp khóa cố định để docs/openapi.yaml xuất lại không bị đổi thứ tự
   writer-with-order-by-keys: true
   swagger-ui:
     path: /swagger-ui.html
@@ -35,11 +36,27 @@ jwt:
   access-token-minutes: 15
   refresh-token-days: 7
 
+diagramio:
+  storage:
+    blob-dir: ${DIAGRAMIO_STORAGE_PATH:data/blobs}
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
-      show-details: never
+      show-details: when_authorized
+      probes:
+        enabled: true
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

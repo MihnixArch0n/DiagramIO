@@ -24,6 +24,8 @@ dependencies {
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.flyway)
+    implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.micrometer.registry.prometheus)
     runtimeOnly(libs.flyway.database.postgresql)
     runtimeOnly(libs.postgresql)
 
