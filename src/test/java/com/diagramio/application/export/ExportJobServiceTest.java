@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
-import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramQueryService;
 import com.diagramio.domain.diagram.DiagramType;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -22,7 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 class ExportJobServiceTest {
-    private final DiagramService diagrams = mock(DiagramService.class);
+    private final DiagramQueryService diagrams = mock(DiagramQueryService.class);
     private final ExportJobService exports = new ExportJobService(diagrams);
 
     @AfterEach

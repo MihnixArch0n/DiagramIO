@@ -11,7 +11,7 @@ import static org.mockito.Mockito.when;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
-import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramQueryService;
 import com.diagramio.domain.diagram.DiagramType;
 import java.time.Duration;
 import java.util.UUID;
@@ -26,7 +26,7 @@ class ExportBulkheadTest {
 
     @Test
     void queueFullRejectsWith429WithoutLosingAcceptedJobs() throws Exception {
-        DiagramService diagrams = mock(DiagramService.class);
+        DiagramQueryService diagrams = mock(DiagramQueryService.class);
         UUID id = UUID.randomUUID();
         UUID owner = UUID.randomUUID();
         CountDownLatch enteredWorker = new CountDownLatch(1);
@@ -77,7 +77,7 @@ class ExportBulkheadTest {
 
     @Test
     void retainedJobLimitRejectsEvenWhenQueueHasCapacity() throws Exception {
-        DiagramService diagrams = mock(DiagramService.class);
+        DiagramQueryService diagrams = mock(DiagramQueryService.class);
         UUID id = UUID.randomUUID();
         UUID owner = UUID.randomUUID();
         when(diagrams.getDiagramById(eq(id), any(Caller.class)))
@@ -101,7 +101,7 @@ class ExportBulkheadTest {
 
     @Test
     void workerContinuesAfterOneExportFails() throws Exception {
-        DiagramService diagrams = mock(DiagramService.class);
+        DiagramQueryService diagrams = mock(DiagramQueryService.class);
         UUID id = UUID.randomUUID();
         UUID owner = UUID.randomUUID();
         AtomicInteger workerReads = new AtomicInteger();
@@ -129,7 +129,7 @@ class ExportBulkheadTest {
 
     @Test
     void productionDefaultsUseFourWorkersAndTwentyQueueSlots() {
-        ExportJobService exports = new ExportJobService(mock(DiagramService.class));
+        ExportJobService exports = new ExportJobService(mock(DiagramQueryService.class));
         try {
             ExportBulkheadStats stats = exports.bulkheadStats();
             assertEquals(4, stats.workerLimit());
@@ -143,7 +143,7 @@ class ExportBulkheadTest {
 
     @Test
     void fourWorkersRemainBoundedAndTwentyWaitingJobsRejectOverload() throws Exception {
-        DiagramService diagrams = mock(DiagramService.class);
+        DiagramQueryService diagrams = mock(DiagramQueryService.class);
         UUID id = UUID.randomUUID();
         UUID owner = UUID.randomUUID();
         CountDownLatch allWorkersStarted = new CountDownLatch(4);

@@ -2,7 +2,7 @@ package com.diagramio.application.export;
 
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.diagram.Diagram;
-import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramQueryService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
@@ -13,6 +13,7 @@ import jakarta.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +34,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Service
 public class ExportJobService {
+
     // Phase 2 WBS: four dedicated workers, separate from HTTP request execution.
     private static final int WORKERS = 4;
     private static final int QUEUE_CAPACITY = 20;
@@ -40,7 +42,8 @@ public class ExportJobService {
     private static final int MAX_EXPORT_BYTES = 3 * 1024 * 1024;
     private static final Duration RESULT_TTL = Duration.ofMinutes(10);
 
-    private final DiagramService diagramService;
+    private final DiagramQueryService diagramService;
+    private final ExportOwnershipReader ownershipReader;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final ConcurrentHashMap<UUID, Job> jobs = new ConcurrentHashMap<>();
     private final Object admissionLock = new Object();
@@ -52,29 +55,67 @@ public class ExportJobService {
     private final Counter failedCounter;
     private final Timer durationTimer;
 
-    // Preserve the one-argument constructor used by existing non-Spring unit tests.
-    public ExportJobService(DiagramService diagramService) {
-        this(diagramService, WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS, new SimpleMeterRegistry());
+    // Preserve existing constructors used by non-Spring unit tests.
+    public ExportJobService(DiagramQueryService diagramService) {
+        this(diagramService, legacyOwnershipReader(diagramService),
+                WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS,
+                new SimpleMeterRegistry());
     }
 
+    public ExportJobService(DiagramQueryService diagramService, MeterRegistry meterRegistry) {
+        this(diagramService, legacyOwnershipReader(diagramService),
+                WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS, meterRegistry);
+    }
+
+    // Production constructor: use a lightweight JPA ownership projection.
     @Autowired
-    public ExportJobService(DiagramService diagramService, MeterRegistry meterRegistry) {
-        this(diagramService, WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS, meterRegistry);
+    public ExportJobService(
+            DiagramQueryService diagramService,
+            ExportOwnershipReader ownershipReader,
+            MeterRegistry meterRegistry) {
+        this(diagramService, ownershipReader,
+                WORKERS, QUEUE_CAPACITY, MAX_RETAINED_JOBS, meterRegistry);
     }
 
-    // Package-private: allow small, deterministic bulkhead limits in unit tests.
-    ExportJobService(DiagramService diagramService, int workers, int queueCapacity, int maxRetainedJobs) {
-        this(diagramService, workers, queueCapacity, maxRetainedJobs, new SimpleMeterRegistry());
+    // Package-private: allow deterministic bulkhead limits in unit tests.
+    ExportJobService(
+            DiagramQueryService diagramService,
+            int workers,
+            int queueCapacity,
+            int maxRetainedJobs) {
+        this(diagramService, legacyOwnershipReader(diagramService),
+                workers, queueCapacity, maxRetainedJobs,
+                new SimpleMeterRegistry());
     }
 
-    ExportJobService(DiagramService diagramService, int workers, int queueCapacity,
-                     int maxRetainedJobs, MeterRegistry meterRegistry) {
-        if (workers < 1 || queueCapacity < 1 || maxRetainedJobs < workers + queueCapacity) {
+    ExportJobService(
+            DiagramQueryService diagramService,
+            int workers,
+            int queueCapacity,
+            int maxRetainedJobs,
+            MeterRegistry meterRegistry) {
+        this(diagramService, legacyOwnershipReader(diagramService),
+                workers, queueCapacity, maxRetainedJobs, meterRegistry);
+    }
+
+    ExportJobService(
+            DiagramQueryService diagramService,
+            ExportOwnershipReader ownershipReader,
+            int workers,
+            int queueCapacity,
+            int maxRetainedJobs,
+            MeterRegistry meterRegistry) {
+
+        if (workers < 1 || queueCapacity < 1
+                || maxRetainedJobs < workers + queueCapacity) {
             throw new IllegalArgumentException("Invalid export bulkhead limits");
         }
+
         this.diagramService = java.util.Objects.requireNonNull(diagramService);
+        this.ownershipReader = java.util.Objects.requireNonNull(ownershipReader);
         this.queueCapacity = queueCapacity;
         this.maxRetainedJobs = maxRetainedJobs;
+
         AtomicInteger nextThread = new AtomicInteger();
         this.executor = new ThreadPoolExecutor(
                 workers,
@@ -83,39 +124,73 @@ public class ExportJobService {
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(queueCapacity),
                 task -> {
-                    Thread worker = new Thread(task, "diagramio-export-" + nextThread.incrementAndGet());
+                    Thread worker = new Thread(
+                            task,
+                            "diagramio-export-" + nextThread.incrementAndGet());
                     worker.setDaemon(true);
                     return worker;
                 },
                 new ThreadPoolExecutor.AbortPolicy()
         );
+
         java.util.Objects.requireNonNull(meterRegistry, "meterRegistry must not be null");
+
         this.succeededCounter = Counter.builder("diagramio.export.jobs.succeeded")
-                .description("Completed JSON exports that succeeded").register(meterRegistry);
+                .description("Completed JSON exports that succeeded")
+                .register(meterRegistry);
+
         this.failedCounter = Counter.builder("diagramio.export.jobs.failed")
-                .description("Completed JSON exports that failed").register(meterRegistry);
+                .description("Completed JSON exports that failed")
+                .register(meterRegistry);
+
         this.durationTimer = Timer.builder("diagramio.export.duration")
                 .description("Background JSON export processing duration")
-                .publishPercentileHistogram().register(meterRegistry);
+                .publishPercentileHistogram()
+                .register(meterRegistry);
 
-        Gauge.builder("diagramio.export.workers.limit", executor, ThreadPoolExecutor::getMaximumPoolSize)
+        Gauge.builder("diagramio.export.workers.limit",
+                        executor, ThreadPoolExecutor::getMaximumPoolSize)
                 .register(meterRegistry);
-        Gauge.builder("diagramio.export.workers.active", executor, ThreadPoolExecutor::getActiveCount)
+
+        Gauge.builder("diagramio.export.workers.active",
+                        executor, ThreadPoolExecutor::getActiveCount)
                 .register(meterRegistry);
-        Gauge.builder("diagramio.export.queue.depth", executor, e -> e.getQueue().size())
+
+        Gauge.builder("diagramio.export.queue.depth",
+                        executor, e -> e.getQueue().size())
                 .register(meterRegistry);
-        Gauge.builder("diagramio.export.queue.capacity", this, e -> e.queueCapacity)
+
+        Gauge.builder("diagramio.export.queue.capacity",
+                        this, e -> e.queueCapacity)
                 .register(meterRegistry);
-        Gauge.builder("diagramio.export.jobs.retained", jobs, m -> m.size())
+
+        Gauge.builder("diagramio.export.jobs.retained",
+                        jobs, m -> m.size())
                 .register(meterRegistry);
-        FunctionCounter.builder("diagramio.export.jobs.rejected", rejectedJobs, AtomicLong::get)
+
+        FunctionCounter.builder("diagramio.export.jobs.rejected",
+                        rejectedJobs, AtomicLong::get)
                 .description("Export submissions rejected by admission limits")
                 .register(meterRegistry);
+    }
+
+    /**
+     * Compatibility fallback for existing unit tests that construct this service
+     * without injecting the JPA ownership reader.
+     */
+    private static ExportOwnershipReader legacyOwnershipReader(
+            DiagramQueryService diagramService) {
+        return (diagramId, ownerId) -> {
+            Diagram diagram = diagramService.getDiagramById(
+                    diagramId, Caller.user(ownerId));
+            return Optional.of(diagram.isOwner(ownerId));
+        };
     }
 
     public ExportJobView submit(UUID diagramId, UUID ownerId) {
         requireAuthenticated(ownerId);
         requireOwnership(diagramId, ownerId);
+
         Job job = new Job(UUID.randomUUID(), diagramId, ownerId);
         synchronized (admissionLock) {
             cleanupExpired();
@@ -123,6 +198,7 @@ public class ExportJobService {
                 rejectedJobs.incrementAndGet();
                 throw overloaded();
             }
+
             jobs.put(job.id, job);
             try {
                 executor.execute(() -> execute(job));
@@ -138,9 +214,13 @@ public class ExportJobService {
     /** Thread-safe, process-local bulkhead snapshot for tests and future telemetry. */
     public ExportBulkheadStats bulkheadStats() {
         return new ExportBulkheadStats(
-                executor.getMaximumPoolSize(), executor.getActiveCount(),
-                executor.getQueue().size(), queueCapacity, rejectedJobs.get(),
-                executor.getCompletedTaskCount(), jobs.size());
+                executor.getMaximumPoolSize(),
+                executor.getActiveCount(),
+                executor.getQueue().size(),
+                queueCapacity,
+                rejectedJobs.get(),
+                executor.getCompletedTaskCount(),
+                jobs.size());
     }
 
     public ExportJobView status(UUID jobId, UUID requesterId) {
@@ -170,11 +250,17 @@ public class ExportJobService {
 
     private void requireOwnership(UUID diagramId, UUID ownerId) {
         if (diagramId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "diagramId is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "diagramId is required");
         }
-        Diagram diagram = diagramService.getDiagramById(diagramId, Caller.user(ownerId));
-        if (!diagram.isOwner(ownerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only diagram owner can export");
+
+        Optional<Boolean> ownership = ownershipReader.isOwner(diagramId, ownerId);
+        if (ownership.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diagram not found");
+        }
+        if (!ownership.get()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Only diagram owner can export");
         }
     }
 
@@ -183,10 +269,12 @@ public class ExportJobService {
         job.status = ExportJobStatus.RUNNING;
         boolean succeeded = false;
         try {
-            Diagram diagram = diagramService.getDiagramById(job.diagramId, Caller.user(job.ownerId));
+            Diagram diagram = diagramService.getDiagramById(
+                    job.diagramId, Caller.user(job.ownerId));
             if (!diagram.isOwner(job.ownerId)) {
                 throw new IllegalStateException("Export permission revoked");
             }
+
             // One database read, then serialize the immutable JSON string from that read.
             var root = jsonMapper.createObjectNode();
             root.put("diagramId", diagram.getId().toString());
@@ -195,10 +283,13 @@ public class ExportJobService {
             root.put("version", diagram.getVersion());
             root.put("exportedAt", Instant.now().toString());
             root.set("data", jsonMapper.readTree(diagram.getData().json()));
-            byte[] output = jsonMapper.writeValueAsString(root).getBytes(StandardCharsets.UTF_8);
+
+            byte[] output = jsonMapper.writeValueAsString(root)
+                    .getBytes(StandardCharsets.UTF_8);
             if (output.length > MAX_EXPORT_BYTES) {
                 throw new IllegalStateException("Export exceeds output limit");
             }
+
             job.output = output;
             succeeded = true;
         } catch (Exception e) {
@@ -228,12 +319,14 @@ public class ExportJobService {
 
     private static void requireAuthenticated(UUID userId) {
         if (userId == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "Authentication required");
         }
     }
 
     private static ResponseStatusException overloaded() {
-        return new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Export service busy");
+        return new ResponseStatusException(
+                HttpStatus.TOO_MANY_REQUESTS, "Export service busy");
     }
 
     @PreDestroy
@@ -258,7 +351,8 @@ public class ExportJobService {
         }
 
         private ExportJobView view() {
-            return new ExportJobView(id, diagramId, status, createdAt, completedAt, errorCode);
+            return new ExportJobView(
+                    id, diagramId, status, createdAt, completedAt, errorCode);
         }
     }
 }

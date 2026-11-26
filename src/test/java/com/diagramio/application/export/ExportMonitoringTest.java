@@ -11,7 +11,7 @@ import com.diagramio.config.DiagramioObservabilityConfig;
 import com.diagramio.domain.access.Caller;
 import com.diagramio.domain.diagram.Diagram;
 import com.diagramio.domain.diagram.DiagramData;
-import com.diagramio.domain.diagram.DiagramService;
+import com.diagramio.domain.diagram.DiagramQueryService;
 import com.diagramio.domain.diagram.DiagramType;
 import com.diagramio.infrastructure.cache.CaffeineDiagramReadCache;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -24,7 +24,7 @@ class ExportMonitoringTest {
     @Test
     void successfulExportIncrementsCounterAndRecordsDuration() throws InterruptedException {
         SimpleMeterRegistry meters = new SimpleMeterRegistry();
-        DiagramService diagrams = mock(DiagramService.class);
+        DiagramQueryService diagrams = mock(DiagramQueryService.class);
         ExportJobService exports = new ExportJobService(diagrams, 1, 2, 3, meters);
         try {
             UUID id = UUID.randomUUID();
@@ -48,7 +48,7 @@ class ExportMonitoringTest {
     @Test
     void failedExportIncrementsFailureCounterAndRecordsDuration() throws InterruptedException {
         SimpleMeterRegistry meters = new SimpleMeterRegistry();
-        DiagramService diagrams = mock(DiagramService.class);
+        DiagramQueryService diagrams = mock(DiagramQueryService.class);
         ExportJobService exports = new ExportJobService(diagrams, 1, 2, 3, meters);
         try {
             UUID id = UUID.randomUUID();
